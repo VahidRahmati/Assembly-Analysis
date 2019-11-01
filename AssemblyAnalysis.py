@@ -253,6 +253,7 @@ class AssemblyMethods(AssemblyInfo):
             raster = self.get_patterns_raster()[c]
             nPatterns = raster.shape[1]
             ed_mat = np.zeros((nPatterns,nPatterns)) 
+            
             ed_mat[:] = np.nan
             for i in np.arange(nPatterns):
                 for j in np.arange(nPatterns):
