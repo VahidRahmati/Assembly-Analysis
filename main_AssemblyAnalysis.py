@@ -18,7 +18,7 @@ import AssemblyAnalysis as aa
 
 
 #%% parameters
-movie_idx = 0 # index of the data set
+movie_idx = 1 # index of the data set
 Active_thr = 3 # importing data with activation threshold of: CoActive_thr*STD(mean[Ft])
 Dir_DataNames = 'D:\Dropbox\Project\PAPER\JNS 2018\Video_2018 - vr\Main analysis\Template Matching'
 Dir_SpikeTrains = 'D:\Data\\2nd Project\Data\Data_arranged\All\\'

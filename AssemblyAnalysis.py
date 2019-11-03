@@ -174,8 +174,8 @@ class AssemblyMethods(AssemblyInfo):
     
     def __init__(self,assemblies_data, sptrains_data=None):
         super(AssemblyMethods,self).__init__(assemblies_data, sptrains_data=sptrains_data)
-        
-        
+    
+    
     def calc_cohess_approx(self):
         #  Cohessivenss: average coupling of each cell to the the presence of specific assembly, i.e. 
         # (Approx. approach): average of the affinities of core cells of that assembly   
@@ -245,7 +245,7 @@ class AssemblyMethods(AssemblyInfo):
     
     
     def calc_pattern_reliability(self):
-        ipdb.set_trace()
+        
         nCores= self.get_ncores()
         ed_cores_mats = [[]]*nCores
         ed_cores_means = [[]]*nCores
@@ -253,17 +253,17 @@ class AssemblyMethods(AssemblyInfo):
             raster = self.get_patterns_raster()[c]
             nPatterns = raster.shape[1]
             ed_mat = np.zeros((nPatterns,nPatterns)) 
-            
-            
             ed_mat[:] = np.nan
-            for i in np.arange(nPatterns):
-                for j in np.arange(nPatterns):
-                    ed_mat[i,j]=ed.SequenceMatcher(raster[:,i],raster[:,j]).distance()
+            for ii in np.arange(1,nPatterns,1):
+                for jj in np.arange(ii):
+                    ed_mat[ii,jj]=ed.SequenceMatcher(raster[:,ii].tolist(),raster[:,jj].tolist()).distance()
             ed_cores_mats[c] = ed_mat
             ed_cores_means[c] = np.nanmean(ed_mat[np.tril_indices_from(ed_mat,-1)])
         return ed_cores_mats,  ed_cores_means
                      
-             
+    def calc_mi_patterns(self):
+        nCores = self.get_ncores()
+                  
      
      
     
