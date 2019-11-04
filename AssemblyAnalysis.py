@@ -243,23 +243,43 @@ class AssemblyMethods(AssemblyInfo):
         
         return DSC, SS_main, SS
     
-    
     def calc_pattern_reliability(self):
-        
+        # calculate the average Edist-distance between the core assembly pattern and each of its sig patterns  
         nCores= self.get_ncores()
         ed_cores_mats = [[]]*nCores
         ed_cores_means = [[]]*nCores
         for c in np.arange(nCores):
             raster = self.get_patterns_raster()[c]
             nPatterns = raster.shape[1]
-            ed_mat = np.zeros((nPatterns,nPatterns)) 
+            ed_mat = np.zeros(nPatterns) 
             ed_mat[:] = np.nan
-            for ii in np.arange(1,nPatterns,1):
-                for jj in np.arange(ii):
-                    ed_mat[ii,jj]=ed.SequenceMatcher(raster[:,ii].tolist(),raster[:,jj].tolist()).distance()
+           
+            core_pidx = self.get_core_PatchIdx()
+            core_binary = np.zeros(raster.shape[0],1)
+            core_binary[core_pidx] = 1
+            
+            for i in np.arange(nPatterns):
+                    ed_mat[i]=ed.SequenceMatcher(core_binary.tolist(),raster[:,i].tolist()).distance()
             ed_cores_mats[c] = ed_mat
             ed_cores_means[c] = np.nanmean(ed_mat[np.tril_indices_from(ed_mat,-1)])
-        return ed_cores_mats,  ed_cores_means
+        return ed_cores_mats,  ed_cores_means    
+    
+#    def calc_pattern_reliability(self):
+#        # calculate the average Edist-distance between the core assembly pattern and each of its sig patterns  
+#        nCores= self.get_ncores()
+#        ed_cores_mats = [[]]*nCores
+#        ed_cores_means = [[]]*nCores
+#        for c in np.arange(nCores):
+#            raster = self.get_patterns_raster()[c]
+#            nPatterns = raster.shape[1]
+#            ed_mat = np.zeros((nPatterns,nPatterns)) 
+#            ed_mat[:] = np.nan
+#            for ii in np.arange(1,nPatterns,1):
+#                for jj in np.arange(ii):
+#                    ed_mat[ii,jj]=ed.SequenceMatcher(raster[:,ii].tolist(),raster[:,jj].tolist()).distance()
+#            ed_cores_mats[c] = ed_mat
+#            ed_cores_means[c] = np.nanmean(ed_mat[np.tril_indices_from(ed_mat,-1)])
+#        return ed_cores_mats,  ed_cores_means
                      
     def calc_mi_patterns(self):
         nCores = self.get_ncores()
