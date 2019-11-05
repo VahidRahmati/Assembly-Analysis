@@ -4,7 +4,7 @@ Created on Mon Oct 28 16:39:28 2019
 
 @author: rahmati
 """
-import edit_distance as ed
+import editdistance as ed
 import ipdb # ipdb.set_trace()
 import os
 #import sys
@@ -15,15 +15,18 @@ def import_assembly(Dir_DataNames,Active_thr,movie_idx):
    
     Dir_current = os.getcwd() # pwd
     
-    os.chdir(Dir_DataNames)
-    #sys.path.append('D:\Dropbox\Project\PAPER\JNS 2018\Video_2018 - vr\Main analysis\Template Matching')
-    from movie_names import names #import the names of the movies as "names" list variable from the movie_names.py
-    os.chdir(Dir_current)
+#    os.chdir(Dir_DataNames)
+#    #sys.path.append('D:\Dropbox\Project\PAPER\JNS 2018\Video_2018 - vr\Main analysis\Template Matching')
+#    from movie_names import names #import the names of the movies as "names" list variable from the movie_names.py
+#    os.chdir(Dir_current)
+#    
+#    name_current = names[movie_idx][11:] # the name of the current movie to analyze
+#    
+#    dir_assmblies = 'D:\Data\\2nd Project\\Data\\Data_arranged\\All\\Assemblies\\thr' + str(Active_thr) + '\\' 
+#    assemblies_data = sio.loadmat(dir_assmblies+ name_current + '_SGC-ASSEMBLIES.mat')
     
-    name_current = names[movie_idx][11:] # the name of the current movie to analyze
+    assemblies_data = sio.loadmat(Dir_current+'\ctrl_130618_SGC-ASSEMBLIES.mat')
     
-    dir_assmblies = 'D:\Data\\2nd Project\\Data\\Data_arranged\\All\\Assemblies\\thr' + str(Active_thr) + '\\' 
-    assemblies_data = sio.loadmat(dir_assmblies+ name_current + '_SGC-ASSEMBLIES.mat')
     #asmb_keys = assemblies_data.keys()
     return assemblies_data
 
@@ -33,14 +36,16 @@ def import_spike_trains(Dir_DataNames,Dir_SpikeTrains,movie_idx,nRows=13,nCols=1
     
     Dir_current = os.getcwd() # pwd
     
-    os.chdir(Dir_DataNames)
-    from movie_names import names #import the names of the movies as "names" list variable from the movie_names.py
-    os.chdir(Dir_current)
+#    os.chdir(Dir_DataNames)
+#    from movie_names import names #import the names of the movies as "names" list variable from the movie_names.py
+#    os.chdir(Dir_current)
+#    
+#    name_current = names[movie_idx] # the name of the current movie to analyze
+#    eTrain_file = sio.loadmat(Dir_SpikeTrains+name_current+'.mat')
+#    eTrain_keys = eTrain_file.keys()
     
-    name_current = names[movie_idx] # the name of the current movie to analyze
-    eTrain_file = sio.loadmat(Dir_SpikeTrains+name_current+'.mat')
-    eTrain_keys = eTrain_file.keys()
-    
+    eTrain_file = sio.loadmat(Dir_current+'\Trains_rec_ctrl_130618.mat')
+    ipdb.set_trace()
     a = eTrain_file['Trains_rec']['raw'][0,0]
     b = eTrain_file['Trains_rec']['raw'][0,0].reshape(nRows*nCols,80000,order='F')
     nFrames_av = eTrain_file['Trains_rec']['nFramesWithoutDrifts'][0,0][0,0] # no. of avialable frames after excluding the animal movement periods
@@ -248,20 +253,23 @@ class AssemblyMethods(AssemblyInfo):
         nCores= self.get_ncores()
         ed_cores_mats = [[]]*nCores
         ed_cores_means = [[]]*nCores
+        core_pidx = self.get_core_PatchIdx()
+        
         for c in np.arange(nCores):
             raster = self.get_patterns_raster()[c]
             nPatterns = raster.shape[1]
             ed_mat = np.zeros(nPatterns) 
             ed_mat[:] = np.nan
            
-            core_pidx = self.get_core_PatchIdx()
-            core_binary = np.zeros(raster.shape[0],1)
-            core_binary[core_pidx] = 1
+            core_binary = np.zeros(raster.shape[0])
+            core_binary[core_pidx[c][0][0]] = 1
             
-            for i in np.arange(nPatterns):
-                    ed_mat[i]=ed.SequenceMatcher(core_binary.tolist(),raster[:,i].tolist()).distance()
+            for i in np.arange(nPatterns):             
+                ed_mat[i]=ed.distance(core_binary.tolist(),raster[:,i].tolist())
+  
+#            ipdb.set_trace()
             ed_cores_mats[c] = ed_mat
-            ed_cores_means[c] = np.nanmean(ed_mat[np.tril_indices_from(ed_mat,-1)])
+            ed_cores_means[c] = np.nanmean(ed_mat)
         return ed_cores_mats,  ed_cores_means    
     
 #    def calc_pattern_reliability(self):
