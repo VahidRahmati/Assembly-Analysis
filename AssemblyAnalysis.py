@@ -10,6 +10,8 @@ import os
 #import sys
 import numpy as np
 import scipy.io as sio
+import matplotlib.pyplot as plt
+
 
 def import_assembly(Dir_DataNames,Active_thr,movie_idx):
    
@@ -24,9 +26,13 @@ def import_assembly(Dir_DataNames,Active_thr,movie_idx):
 #    
 #    dir_assmblies = 'D:\Data\\2nd Project\\Data\\Data_arranged\\All\\Assemblies\\thr' + str(Active_thr) + '\\' 
 #    assemblies_data = sio.loadmat(dir_assmblies+ name_current + '_SGC-ASSEMBLIES.mat')
-    
+#    ipdb.set_trace()
     assemblies_data = sio.loadmat(Dir_current+'\ctrl_130618_SGC-ASSEMBLIES.mat')
+    sigFrame_times = sio.loadmat(Dir_current+'\ctrl_130618_ACTIVITY-RASTER.mat')['activity_raster_peaks']
     
+    assemblies_data['sigFrame_times'] = sigFrame_times
+    
+    ipdb.set_trace()
     #asmb_keys = assemblies_data.keys()
     return assemblies_data
 
@@ -45,22 +51,23 @@ def import_spike_trains(Dir_DataNames,Dir_SpikeTrains,movie_idx,nRows=13,nCols=1
 #    eTrain_keys = eTrain_file.keys()
     
     eTrain_file = sio.loadmat(Dir_current+'\Trains_rec_ctrl_130618.mat')
-    ipdb.set_trace()
     a = eTrain_file['Trains_rec']['raw'][0,0]
     b = eTrain_file['Trains_rec']['raw'][0,0].reshape(nRows*nCols,80000,order='F')
+    
+#    ipdb.set_trace()
+    drifts_mat = eTrain_file['Trains_rec']['drifts_mat'][0,0]
     nFrames_av = eTrain_file['Trains_rec']['nFramesWithoutDrifts'][0,0][0,0] # no. of avialable frames after excluding the animal movement periods
     
-    return {"nFrames_av":nFrames_av}    
+    return {"nFrames_av":nFrames_av, 'drifts_mat':drifts_mat}    
 
 
 #%% Read assbly detection results and compute basic measures
 class AssemblyInfo(object):
     
-    def __init__(self, assemblies_data, sptrains_data=None):
+    def __init__(self, assemblies_data):
         # assemblies_data: the output of cell-assembly detection method using SGC for one dataset
         self.assemblies = assemblies_data['assemblies'] 
         self.activities = assemblies_data['assembly_pattern_detection']
-        self.spdata = sptrains_data
         
         
     def get_ncores(self):
@@ -162,23 +169,79 @@ class AssemblyInfo(object):
         return freq_vec*100
         
     
-    def get_assemble_freq(self):
-        # the temporal frequency of each assembly, during the available recording time (freq in [1/frame])     
-        nFrames_av = self.spdata['nFrames_av']
-        Tfreq_vec = np.zeros(self.get_ncores()) 
-        for c in np.arange(self.get_ncores()):
-            Tfreq_vec[c] = self.get_patterns_idx()[c].size/nFrames_av # in [1/frame]
-        return Tfreq_vec
-        
-    
-    
-        
-    
+
     
 class AssemblyMethods(AssemblyInfo):
     
     def __init__(self,assemblies_data, sptrains_data=None):
-        super(AssemblyMethods,self).__init__(assemblies_data, sptrains_data=sptrains_data)
+        super(AssemblyMethods,self).__init__(assemblies_data)
+        self.sigTimes = assemblies_data['sigFrame_times'] - 1 # indices were imported from Matlab
+        self.nFrames_av = sptrains_data['nFrames_av']
+        
+        drifts_mat = sptrains_data['drifts_mat'] - 1 # indices were imported from Matlab
+        drifts_mat = np.vstack((np.array([0,0]),drifts_mat)) if drifts_mat[0,0]!=0 else drifts_mat
+        drifts_mat[-1,1] = self.nFrames_av if drifts_mat[-1,1] == self.nFrames_av-1 else drifts_mat[-1,1] 
+        drifts_mat = np.vstack((drifts_mat,np.array([self.nFrames_av,self.nFrames_av]))) if drifts_mat[-1,1]!=self.nFrames_av else drifts_mat
+        self.drifts_mat = drifts_mat 
+        
+        
+    def calc_irregulairty(self):
+        sig_times = self.sigTimes # the timing of all singinifcant frames of all assemblies
+        drifts_mat  = self.drifts_mat 
+        nDrifts = drifts_mat.shape[0]
+        nChunks = nDrifts - 1 # note that we have added virtual drifts to the first and end of recoding (see the importing code above)        
+        isi_all = []
+        n_isi = 0
+        sum_CV2 = 0
+        for cc in np.arange(nChunks):
+            ch_start = drifts_mat[cc,1]
+            ch_end = drifts_mat[cc+1,0]
+            ch_frames = sig_times[np.where(np.logical_and(sig_times>ch_start, sig_times<ch_end))]
+            isi_vec = np.diff(ch_frames)
+            isi_all += isi_vec.tolist()
+            
+            if isi_vec.size>=2:
+               for i in np.arange(isi_vec.size-1):
+                   
+                   sum_CV2 += 2*np.absolute(isi_vec[i]-isi_vec[i+1])/(isi_vec[i]+isi_vec[i+1])
+               n_isi += isi_vec.size 
+               
+        CV2 = sum_CV2/(n_isi-1)
+        isi_all = np.array(isi_all)
+        CV = np.nanstd(isi_all)/np.nanmean(isi_all)
+        
+        return CV2, CV, isi_all
+            
+       
+    def calc_transitions(self):
+        nCores = self.get_ncores()
+        sig_times = self.sigTimes # the timing of all singinifcant frames of all assemblies
+        drifts_mat  = self.drifts_mat         
+        nDrifts = drifts_mat.shape[0]
+        nChunks = nDrifts - 1 # note that we have added virtual drifts to the first and end of recoding (see the importing code above)        
+        preced_mat = np.zeros((nCores,nCores))
+        for cc in np.arange(nChunks):
+            ch_start = drifts_mat[cc,1]
+            ch_end = drifts_mat[cc+1,0]
+            ch_frames = sig_times[np.where(np.logical_and(sig_times>ch_start, sig_times<ch_end))]
+            ipdb.set_trace()
+            
+#            if ch_frames.size >=2:
+#                for i in 
+        
+        
+        
+        
+        
+        
+    
+    def calc_assemble_freq(self):
+        # the temporal frequency of each assembly, during the available recording time (freq in [1/frame])     
+        Tfreq_vec = np.zeros(self.get_ncores()) 
+        for c in np.arange(self.get_ncores()):
+            Tfreq_vec[c] = self.get_patterns_idx()[c].size/self.nFrames_av # in [1/frame]
+        return Tfreq_vec    
+        
     
     
     def calc_cohess_approx(self):
@@ -234,19 +297,16 @@ class AssemblyMethods(AssemblyInfo):
                 DSC[i,j]= 2*np.intersect1d(vec1,vec2).size/(vec1.size + vec2.size)       
                 
                 # Determine the sub-assembliness (SS)
-                SS[i,j] = np.intersect1d(vec1,vec2).size*100/vec1.size
-                
+                SS[i,j] = np.intersect1d(vec1,vec2).size*100/vec1.size                
         
         # now determine whether e.g. core of assembly A is a sub-assmbly of that of B        
         SS_main = np.zeros((nCores, nCores)) # binary
         for i in np.arange(nCores):
             for j in np.arange(nCores):
-                
                 if SS[i,j]>=ss_thr and SS[j,i]<ss_thr:
-                    SS_main[i,j] = 1
-
-        
+                    SS_main[i,j] = 1    
         return DSC, SS_main, SS
+    
     
     def calc_pattern_reliability(self):
         # calculate the average Edist-distance between the core assembly pattern and each of its sig patterns  
