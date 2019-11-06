@@ -34,7 +34,7 @@ spdata = aa.import_spike_trains(Dir_DataNames, Dir_SpikeTrains, movie_idx)
 
 assdata = aa.import_assembly(Dir_DataNames, Active_thr, movie_idx)
 
-aa.AssemblyMethods(assdata, spdata).calc_irregulairty()
+aa.AssemblyMethods(assdata,spdata).calc_irregularity()
 
 x = aa.AssemblyMethods(assdata, spdata).calc_irregulairty()
 v = aa.AssemblyInfo(assdata, spdata).assemble_freq()

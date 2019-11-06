@@ -198,25 +198,49 @@ class AssemblyMethods(AssemblyInfo):
         
 
     def calc_transitions(self):
+        #
         nCores = self.get_ncores()
-        label_time = self.get_labeled_times()
+        label_time = self.get_labeled_times().astype(int)
         sig_times = label_time[0,].copy()
         drifts_mat  = self.drifts_mat         
         nDrifts = drifts_mat.shape[0]
         nChunks = nDrifts - 1 # note that we have added virtual drifts to the first and end of recoding (see the importing code above)        
         count_mat = np.zeros((nCores,nCores))
+       
+        # now count the specif orders of assemblies (repetition time of all observed sequences)
         for cc in np.arange(nChunks):
             ch_start = drifts_mat[cc,1]
-            ch_end = drifts_mat[cc+1,0]            
-            ch_label_time = label_time[:,np.where(np.logical_and(sig_times>ch_start, sig_times<ch_end))[0]]
-            ch_label = ch_label_time[1,:].astype(int)
+            ch_end = drifts_mat[cc+1,0]              
+            ch_label_time = label_time[:,np.where(np.logical_and(sig_times>ch_start, sig_times<ch_end))[0]].copy()
+            ch_label = ch_label_time[1,:]
             ch_sig = ch_label_time[0,:]
             if ch_sig.size>0:
-                ipdb.set_trace()
                 for i in np.arange(ch_sig.size-1):
                     count_mat[ch_label[i],ch_label[i+1]] += 1  
         return count_mat    
-            
+        
+    
+    
+    def calc_assembly_seq(self,nShuffles =500):
+        label_time = self.get_labeled_times().astype(int)
+        sig_all = label_time[0,:]
+        count_mat_emp = self.calc_transitions()
+        sum_mat = np.zeros_like(count_mat_emp)
+        # for computing the count matrix in shuffled data, we don't care about the shuffles
+        for s in np.arange(nShuffles):
+            count_mat_sh = np.zeros_like(count_mat_emp)
+            label_all = label_time[1,:].copy()
+            np.random.shuffle(label_all)
+            for i in np.arange(sig_all.size-1):
+                count_mat_sh[label_all[i],label_all[i+1]] += 1  
+            sum_mat += count_mat_sh>=count_mat_emp
+        
+        # now compute pvalues
+        pvals = sum_mat/nShuffles
+        return pvals
+    
+        
+    
     def calc_irregularity(self):
         # compute the in-time irregularity of all sig patterns, regardless of to whatever assembly they belong to 
         sig_times = self.sigTimes # the timing of all singinifcant frames of all assemblies
