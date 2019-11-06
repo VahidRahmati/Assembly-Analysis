@@ -32,7 +32,7 @@ def import_assembly(Dir_DataNames,Active_thr,movie_idx):
     
     assemblies_data['sigFrame_times'] = sigFrame_times
     
-    ipdb.set_trace()
+#    ipdb.set_trace()
     #asmb_keys = assemblies_data.keys()
     return assemblies_data
 
@@ -68,7 +68,7 @@ class AssemblyInfo(object):
         # assemblies_data: the output of cell-assembly detection method using SGC for one dataset
         self.assemblies = assemblies_data['assemblies'] 
         self.activities = assemblies_data['assembly_pattern_detection']
-        
+        self.sigTimes = assemblies_data['sigFrame_times'] - 1 # indices were imported from Matlab
         
     def get_ncores(self):
         return self.assemblies.shape[0] # number of core assmblies
@@ -169,13 +169,25 @@ class AssemblyInfo(object):
         return freq_vec*100
         
     
+    def get_labeled_times(self):
+        # assign assembly labels to the timing of sig patterns
+        nCores = self.get_ncores()
+        sig_times = self.sigTimes # the timing of all singinifcant frames of all assemblies
+        sig_idx = self.get_patterns_idx()
+        nPatterns = sig_times.size
+        label_time = np.zeros((2,nPatterns))
+        label_time[0,:] = sig_times.transpose()
+        for i in np.arange(nCores):
+            label_time[1,sig_idx[i]] = i # assmeblies are labeled as 1, 2, 3, ...
+        return label_time    
 
-    
+            
+            
+            
 class AssemblyMethods(AssemblyInfo):
     
     def __init__(self,assemblies_data, sptrains_data=None):
         super(AssemblyMethods,self).__init__(assemblies_data)
-        self.sigTimes = assemblies_data['sigFrame_times'] - 1 # indices were imported from Matlab
         self.nFrames_av = sptrains_data['nFrames_av']
         
         drifts_mat = sptrains_data['drifts_mat'] - 1 # indices were imported from Matlab
@@ -184,8 +196,29 @@ class AssemblyMethods(AssemblyInfo):
         drifts_mat = np.vstack((drifts_mat,np.array([self.nFrames_av,self.nFrames_av]))) if drifts_mat[-1,1]!=self.nFrames_av else drifts_mat
         self.drifts_mat = drifts_mat 
         
-        
-    def calc_irregulairty(self):
+
+    def calc_transitions(self):
+        nCores = self.get_ncores()
+        label_time = self.get_labeled_times()
+        sig_times = label_time[0,].copy()
+        drifts_mat  = self.drifts_mat         
+        nDrifts = drifts_mat.shape[0]
+        nChunks = nDrifts - 1 # note that we have added virtual drifts to the first and end of recoding (see the importing code above)        
+        count_mat = np.zeros((nCores,nCores))
+        for cc in np.arange(nChunks):
+            ch_start = drifts_mat[cc,1]
+            ch_end = drifts_mat[cc+1,0]            
+            ch_label_time = label_time[:,np.where(np.logical_and(sig_times>ch_start, sig_times<ch_end))[0]]
+            ch_label = ch_label_time[1,:].astype(int)
+            ch_sig = ch_label_time[0,:]
+            if ch_sig.size>0:
+                ipdb.set_trace()
+                for i in np.arange(ch_sig.size-1):
+                    count_mat[ch_label[i],ch_label[i+1]] += 1  
+        return count_mat    
+            
+    def calc_irregularity(self):
+        # compute the in-time irregularity of all sig patterns, regardless of to whatever assembly they belong to 
         sig_times = self.sigTimes # the timing of all singinifcant frames of all assemblies
         drifts_mat  = self.drifts_mat 
         nDrifts = drifts_mat.shape[0]
@@ -208,40 +241,16 @@ class AssemblyMethods(AssemblyInfo):
                
         CV2 = sum_CV2/(n_isi-1)
         isi_all = np.array(isi_all)
-        CV = np.nanstd(isi_all)/np.nanmean(isi_all)
-        
+        CV = np.nanstd(isi_all)/np.nanmean(isi_all)        
         return CV2, CV, isi_all
-            
-       
-    def calc_transitions(self):
-        nCores = self.get_ncores()
-        sig_times = self.sigTimes # the timing of all singinifcant frames of all assemblies
-        drifts_mat  = self.drifts_mat         
-        nDrifts = drifts_mat.shape[0]
-        nChunks = nDrifts - 1 # note that we have added virtual drifts to the first and end of recoding (see the importing code above)        
-        preced_mat = np.zeros((nCores,nCores))
-        for cc in np.arange(nChunks):
-            ch_start = drifts_mat[cc,1]
-            ch_end = drifts_mat[cc+1,0]
-            ch_frames = sig_times[np.where(np.logical_and(sig_times>ch_start, sig_times<ch_end))]
-            ipdb.set_trace()
-            
-#            if ch_frames.size >=2:
-#                for i in 
-        
-        
-        
-        
-        
-        
+                    
     
     def calc_assemble_freq(self):
         # the temporal frequency of each assembly, during the available recording time (freq in [1/frame])     
         Tfreq_vec = np.zeros(self.get_ncores()) 
         for c in np.arange(self.get_ncores()):
             Tfreq_vec[c] = self.get_patterns_idx()[c].size/self.nFrames_av # in [1/frame]
-        return Tfreq_vec    
-        
+        return Tfreq_vec            
     
     
     def calc_cohess_approx(self):
