@@ -214,21 +214,22 @@ class AssemblyMethods(AssemblyInfo):
             ch_label_time = label_time[:,np.where(np.logical_and(sig_times>ch_start, sig_times<ch_end))[0]].copy()
             ch_label = ch_label_time[1,:]
             ch_sig = ch_label_time[0,:]
+            ipdb.set_trace()
             if ch_sig.size>0:
                 for i in np.arange(ch_sig.size-1):
                     count_mat[ch_label[i],ch_label[i+1]] += 1  
-        
-        return {'count_mat':count_mat}    
+                    
+        return count_mat    
     
     
-    def calc_assembly_seq(self,nShuffles=500):
+    def calc_assembly_seq(self,nShuffles=5000):
         # compute the pvalues of assembly in-time sequences
         nCores = self.get_ncores()
         label_time = self.get_labeled_times().astype(int)
         sig_all = label_time[0,:]
-        count_mat_emp = self.calc_transitions()['count_mat']
+        count_mat_emp = self.calc_transitions()
         count_mat_sh = np.zeros((nCores,nCores,nShuffles))
-        Pr_sh = np.zeros_like(count_mat_sh)
+        PrAB_sh = np.zeros_like(count_mat_sh)
         sum_mat = np.zeros_like(count_mat_emp)
         
         # for computing the count matrix in shuffled data, we don't care about the shuffles
@@ -236,37 +237,82 @@ class AssemblyMethods(AssemblyInfo):
             label_all = label_time[1,:].copy()
             np.random.shuffle(label_all)
             for i in np.arange(sig_all.size-1):
-                count_mat_sh[label_all[i],label_all[i+1],s] += 1  
-            rows_sum = np.sum(count_mat_sh[:,:,s],axis=1).reshape(nCores,1) 
-            Pr_sh[:,:,s] = count_mat_sh[:,:,s]/rows_sum
+                count_mat_sh[label_all[i],label_all[i+1],s] += 1              
             sum_mat += count_mat_sh[:,:,s]>=count_mat_emp
+            rows_sum_sh = np.sum(count_mat_sh[:,:,s],axis=1).reshape(nCores,1) 
+            PrAB_sh[:,:,s] = count_mat_sh[:,:,s]/rows_sum_sh
+            ipdb.set_trace()
+            nObserved_patterns_all = count_mat_sh[:,:,s].sum()
+            PrA_sh = rows_sum_sh/nObserved_patterns_all
+            
             
         # now compute pvalues
         pvals = sum_mat/nShuffles
         
+        # additionally, also convert the count_mat to a Pr transition mat
         rows_sum = np.sum(count_mat_emp,axis=1).reshape(nCores,1) 
-        Pr_emp = count_mat_emp/rows_sum
+        PrAB_emp = count_mat_emp/rows_sum
         
-        return {'pvals':pvals,'count_mat':count_mat_emp,'Pr_sh':Pr_sh,'Pr_emp':Pr_emp}
+        # also compute the probabilty of observating each node (i.e. assembly: A1,A2,A3); i.e. P(s_t=A1), P(s_t=A2),P(s_t=A3), ...
+        nObserved_patterns_all = count_mat_emp.sum()
+        PrA_emp = rows_sum/nObserved_patterns_all
+        PrA_emp = PrA_emp.reshape(nCores,1)
+        
+        return {'pvals':pvals,'count_mat':count_mat_emp,'PrAB_sh':PrAB_sh,'PrAB_emp':PrAB_emp, 'PrA_emp':PrA_emp, 'PrA_sh':PrA_sh}
     
     
-    def calc_KL1(self,nShuffles=500):
-        # 1st approach: Whether the state stransitions of each node (each node separately)
-        # is more structured than a purely random process (i.e. process under uniform assumption)
-        nCores = self.get_ncores()      
-        Pr_emp = self.calc_assembly_seq()['Pr_emp']
-        ipdb.set_trace()
-        Pr_uni = np.ones_like(Pr_emp)/nCores # the transition Pr matrix under uniform dist assumption
-        KL = np.zeros(nCores)
-        KL[:] = np.nan
+    def calc_KL_transitions(self,nShuffles=5000):
+        # 1st approach: (Conditional mutual information) Whether the state stransitions of each node (each node separately)
+        # is temporally more structured than a purely random process (i.e. process under uniform assumption)
+        nCores = self.get_ncores()
+        seq_info = self.calc_assembly_seq(nShuffles)
+        PrAB_emp = seq_info['PrAB_emp']
+        PrAB_sh = seq_info['PrAB_sh']
+        Pr_uni = np.ones_like(PrAB_emp)/nCores # the transition Pr matrix under uniform dist assumption
         
+        KL_emp = np.zeros((1,nCores))
+        KL_emp[:] = np.nan
+        sum_mat = np.zeros_like(KL_emp)
+ 
         # compute the empirical KL divergence between the observed transisition Pr dist and uniform dist 
         for i in np.arange(nCores):
-            KL[i] =  np.nansum(Pr_emp[i,:]*np.log(Pr_emp[i,:]/Pr_uni[i,:]))
+            KL_emp[0,i] =  np.nansum(PrAB_emp[i,:]*np.log2(PrAB_emp[i,:]/Pr_uni[i,:]))
+        
+        # now use shuffled Pr mat transitions to assess whether the KL_emp is significant         
+        for s in np.arange(nShuffles):
+            KL_sh = np.zeros_like(KL_emp)
+            KL_sh[:] = np.nan 
+            for i in np.arange(nCores):
+                KL_sh[0,i] =  np.nansum(PrAB_sh[i,:,s]*np.log2(PrAB_sh[i,:,s]/Pr_uni[i,:]))
+            sum_mat += KL_sh>=KL_emp
             
-#        for s in np.arange(nShuffles):
-#            for 
-#            
+        pvals_KL = sum_mat/nShuffles
+        
+        return pvals_KL
+            
+    
+    def calc_MI_transitions(self,nShuffles=5000):        
+        # 2nd approach: (Mutual information) Whether the whole observed state transitions of all nodes (together)
+        # is temporally more structured. MI tells us, how much knowing the current state of the process witll tell us about
+        # the future (next state), or vice versa. 
+        nCores = self.get_ncores()
+        seq_info = self.calc_assembly_seq(nShuffles)
+        PrAB_emp = seq_info['PrAB_emp']
+        PrA_emp = seq_info['PrA_emp'] 
+        PrAB_sh = seq_info['PrAB_sh']        
+        MI_emp = 0
+        
+        # (Empirical) compute the MI between current and next (future) state of whole process (i.e. all transitions of all nodes) 
+        for i in np.arange(nCores):
+            MI_emp += PrA_emp[i]*np.nansum(PrAB_emp[i,:]*np.log2(PrAB_emp[i,:]/PrA_emp))
+            
+        # (Suffled) compute the MI between current and next (future) state of whole process (i.e. all transitions of all nodes)   
+#        for s in np.arange(nCores): 
+        
+        
+        
+        return MI_emp
+            
         
         
         
