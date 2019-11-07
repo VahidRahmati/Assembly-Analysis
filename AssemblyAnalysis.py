@@ -230,10 +230,20 @@ class AssemblyMethods(AssemblyInfo):
         label_time = self.get_labeled_times().astype(int)
         sig_all = label_time[0,:]
         trans = self.calc_transitions()
-        ipdb.set_trace()
         count_mat_emp = trans['count_mat']
         ch_size = trans['ch_size']
         nChunks = ch_size.size
+        labels_all = label_time[1,:].copy()
+        ipdb.set_trace()
+        new_labels = []
+        z = 0
+        for h in np.arange(nChunks):
+            if ch_size[h]>0:
+               temp = labels_all[np.arange(z, z+ch_size[h]).astype(int)]
+               new_labels = np.hstack((new_labels,temp))
+        
+        ipdb.set_trace()
+        
 #        labels_x  =
         count_mat_sh = np.zeros((nCores,nCores,nShuffles))
         PrAB_sh = np.zeros_like(count_mat_sh)
