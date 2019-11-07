@@ -206,28 +206,108 @@ class AssemblyMethods(AssemblyInfo):
         nDrifts = drifts_mat.shape[0]
         nChunks = nDrifts - 1 # note that we have added virtual drifts to the first and end of recoding (see the importing code above)        
         count_mat = np.zeros((nCores,nCores))
-       
+        ch_size = np.zeros(nChunks)
+        ch_size[:]=np.nan
+        
         # now count the specif orders of assemblies (repetition time of all observed sequences)
         for cc in np.arange(nChunks):
             ch_start = drifts_mat[cc,1]
             ch_end = drifts_mat[cc+1,0]              
             ch_label_time = label_time[:,np.where(np.logical_and(sig_times>ch_start, sig_times<ch_end))[0]].copy()
             ch_label = ch_label_time[1,:]
-            ch_sig = ch_label_time[0,:]
-            ipdb.set_trace()
+            ch_sig = ch_label_time[0,:]           
+            ch_size[cc] = ch_sig.size # the number of assemblies occuring within each chunk of time
             if ch_sig.size>0:
-                for i in np.arange(ch_sig.size-1):
+                for i in np.arange(ch_label.size-1):
                     count_mat[ch_label[i],ch_label[i+1]] += 1  
                     
-        return count_mat    
+        return {'count_mat':count_mat,'ch_size':ch_size}    
     
     
-    def calc_assembly_seq(self,nShuffles=5000):
+    def calc_assembly_seq3(self,nShuffles=5000):
         # compute the pvalues of assembly in-time sequences
         nCores = self.get_ncores()
         label_time = self.get_labeled_times().astype(int)
         sig_all = label_time[0,:]
-        count_mat_emp = self.calc_transitions()
+        trans = self.calc_transitions()
+        ipdb.set_trace()
+        count_mat_emp = trans['count_mat']
+        ch_size = trans['ch_size']
+        nChunks = ch_size.size
+#        labels_x  =
+        count_mat_sh = np.zeros((nCores,nCores,nShuffles))
+        PrAB_sh = np.zeros_like(count_mat_sh)
+        sum_mat = np.zeros_like(count_mat_emp)
+        PrA_sh = np.zeros((nCores,nShuffles))
+        
+        
+        
+        
+    
+    def calc_assembly_seq1(self,nShuffles=5000):
+        # compute the pvalues of assembly in-time sequences
+        nCores = self.get_ncores()
+        label_time = self.get_labeled_times().astype(int)
+        sig_all = label_time[0,:]
+        trans = self.calc_transitions()
+        count_mat_emp = trans['count_mat']
+        ch_size = trans['ch_size']
+        nChunks = ch_size.size
+        count_mat_sh = np.zeros((nCores,nCores,nShuffles))
+        PrAB_sh = np.zeros_like(count_mat_sh)
+        sum_mat = np.zeros_like(count_mat_emp)
+        PrA_sh = np.zeros((nCores,nShuffles))
+        
+        # for computing the count matrix in shuffled data, we don't care about the shuffles
+        for s in np.arange(nShuffles):
+            
+            label_all = label_time[1,:].copy()
+            np.random.shuffle(label_all)
+            m = 0
+            
+            for cc in np.arange(nChunks):
+                size_current = ch_size[cc]
+                if size_current>0:
+                    ch_label = label_all[np.arange(m,m+size_current).astype(int)]
+                    m = size_current
+                    for i in np.arange(ch_label.size-1):
+                        count_mat_sh[ch_label[i],ch_label[i+1],s] += 1 
+            
+            sum_mat += count_mat_sh[:,:,s]>=count_mat_emp
+            rows_sum_sh = np.sum(count_mat_sh[:,:,s],axis=1).reshape(nCores,1) 
+            temp1 = count_mat_sh[:,:,s]/rows_sum_sh
+            temp1[np.isnan(temp1)]=0
+            PrAB_sh[:,:,s] = temp1
+            nObserved_patterns_all = count_mat_sh[:,:,s].sum()
+            temp2 = rows_sum_sh/nObserved_patterns_all
+            temp2[np.isnan(temp2)]=0
+            
+            PrA_sh[:,s] = np.squeeze(temp2)
+         
+        # now compute pvalues
+        pvals = sum_mat/nShuffles
+        
+        # additionally, also convert the count_mat to a Pr transition mat
+        rows_sum = np.sum(count_mat_emp,axis=1).reshape(nCores,1) 
+        PrAB_emp = count_mat_emp/rows_sum
+        PrAB_emp[np.isnan(PrAB_emp)]=0
+        
+        # also compute the probabilty of observating each node (i.e. assembly: A1,A2,A3); i.e. P(s_t=A1), P(s_t=A2),P(s_t=A3), ...
+        nObserved_patterns_all = count_mat_emp.sum()
+        PrA_emp = rows_sum/nObserved_patterns_all
+        PrA_emp[np.isnan(PrA_emp)] = 0
+        PrA_emp = PrA_emp.reshape(nCores,1)
+        
+        return {'pvals':pvals,'count_mat':count_mat_emp,'PrAB_sh':PrAB_sh,'PrAB_emp':PrAB_emp, 'PrA_emp':PrA_emp, 'PrA_sh':PrA_sh}
+    
+    
+    def calc_assembly_seq2(self,nShuffles=5000):
+        # compute the pvalues of assembly in-time sequences
+        nCores = self.get_ncores()
+        label_time = self.get_labeled_times().astype(int)
+        sig_all = label_time[0,:]
+        trans = self.calc_transitions()
+        count_mat_emp = trans['count_mat']
         count_mat_sh = np.zeros((nCores,nCores,nShuffles))
         PrAB_sh = np.zeros_like(count_mat_sh)
         sum_mat = np.zeros_like(count_mat_emp)
@@ -241,10 +321,8 @@ class AssemblyMethods(AssemblyInfo):
             sum_mat += count_mat_sh[:,:,s]>=count_mat_emp
             rows_sum_sh = np.sum(count_mat_sh[:,:,s],axis=1).reshape(nCores,1) 
             PrAB_sh[:,:,s] = count_mat_sh[:,:,s]/rows_sum_sh
-            ipdb.set_trace()
             nObserved_patterns_all = count_mat_sh[:,:,s].sum()
             PrA_sh = rows_sum_sh/nObserved_patterns_all
-            
             
         # now compute pvalues
         pvals = sum_mat/nShuffles
@@ -259,6 +337,7 @@ class AssemblyMethods(AssemblyInfo):
         PrA_emp = PrA_emp.reshape(nCores,1)
         
         return {'pvals':pvals,'count_mat':count_mat_emp,'PrAB_sh':PrAB_sh,'PrAB_emp':PrAB_emp, 'PrA_emp':PrA_emp, 'PrA_sh':PrA_sh}
+    
     
     
     def calc_KL_transitions(self,nShuffles=5000):
