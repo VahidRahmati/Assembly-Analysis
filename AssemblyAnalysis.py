@@ -168,7 +168,7 @@ class AssemblyInfo(object):
             freq_vec[c] = self.get_patterns_idx()[c].size/self.get_nsig_patterns_all()   
         return freq_vec*100
         
-    
+        
     def get_labeled_times(self):
         # assign assembly labels to the timing of sig patterns
         nCores = self.get_ncores()
@@ -180,8 +180,7 @@ class AssemblyInfo(object):
         for i in np.arange(nCores):
             label_time[1,sig_idx[i]] = i # assmeblies are labeled as 1, 2, 3, ...
         return label_time    
-
-            
+   
             
             
 class AssemblyMethods(AssemblyInfo):
@@ -234,23 +233,24 @@ class AssemblyMethods(AssemblyInfo):
         ch_size = trans['ch_size']
         nChunks = ch_size.size
         labels_all = label_time[1,:].copy()
-        ipdb.set_trace()
         new_labels = []
+        new_label = nCores+1
         z = 0
-        for h in np.arange(nChunks):
-            if ch_size[h]>0:
-               temp = labels_all[np.arange(z, z+ch_size[h]).astype(int)]
-               new_labels = np.hstack((new_labels,temp))
-        
         ipdb.set_trace()
+        for hh in np.arange(nChunks):
+            print(ch_size[hh])
+            if ch_size[hh]>0:
+               temp = labels_all[np.arange(z, z+ch_size[hh]).astype(int)]
+               new_labels = np.hstack((new_labels,temp,new_label))
+               z = ch_size[hh]
+        
+        
         
 #        labels_x  =
         count_mat_sh = np.zeros((nCores,nCores,nShuffles))
         PrAB_sh = np.zeros_like(count_mat_sh)
         sum_mat = np.zeros_like(count_mat_emp)
         PrA_sh = np.zeros((nCores,nShuffles))
-        
-        
         
         
     
@@ -266,7 +266,7 @@ class AssemblyMethods(AssemblyInfo):
         count_mat_sh = np.zeros((nCores,nCores,nShuffles))
         PrAB_sh = np.zeros_like(count_mat_sh)
         sum_mat = np.zeros_like(count_mat_emp)
-        PrA_sh = np.zeros((nCores,nShuffles))
+        PrA_sh = np.zeros((nShuffles,nCores))
         
         # for computing the count matrix in shuffled data, we don't care about the shuffles
         for s in np.arange(nShuffles):
@@ -277,9 +277,10 @@ class AssemblyMethods(AssemblyInfo):
             
             for cc in np.arange(nChunks):
                 size_current = ch_size[cc]
+#                ipdb.set_trace()
                 if size_current>0:
                     ch_label = label_all[np.arange(m,m+size_current).astype(int)]
-                    m = size_current
+                    m += size_current
                     for i in np.arange(ch_label.size-1):
                         count_mat_sh[ch_label[i],ch_label[i+1],s] += 1 
             
@@ -291,8 +292,7 @@ class AssemblyMethods(AssemblyInfo):
             nObserved_patterns_all = count_mat_sh[:,:,s].sum()
             temp2 = rows_sum_sh/nObserved_patterns_all
             temp2[np.isnan(temp2)]=0
-            
-            PrA_sh[:,s] = np.squeeze(temp2)
+            PrA_sh[s,:] = np.squeeze(temp2)
          
         # now compute pvalues
         pvals = sum_mat/nShuffles
@@ -306,7 +306,7 @@ class AssemblyMethods(AssemblyInfo):
         nObserved_patterns_all = count_mat_emp.sum()
         PrA_emp = rows_sum/nObserved_patterns_all
         PrA_emp[np.isnan(PrA_emp)] = 0
-        PrA_emp = PrA_emp.reshape(nCores,1)
+        PrA_emp = PrA_emp.reshape(1,nCores)
         
         return {'pvals':pvals,'count_mat':count_mat_emp,'PrAB_sh':PrAB_sh,'PrAB_emp':PrAB_emp, 'PrA_emp':PrA_emp, 'PrA_sh':PrA_sh}
     
@@ -320,6 +320,7 @@ class AssemblyMethods(AssemblyInfo):
         count_mat_emp = trans['count_mat']
         count_mat_sh = np.zeros((nCores,nCores,nShuffles))
         PrAB_sh = np.zeros_like(count_mat_sh)
+        PrA_sh = np.zeros((nShuffles,nCores))
         sum_mat = np.zeros_like(count_mat_emp)
         
         # for computing the count matrix in shuffled data, we don't care about the shuffles
@@ -330,9 +331,13 @@ class AssemblyMethods(AssemblyInfo):
                 count_mat_sh[label_all[i],label_all[i+1],s] += 1              
             sum_mat += count_mat_sh[:,:,s]>=count_mat_emp
             rows_sum_sh = np.sum(count_mat_sh[:,:,s],axis=1).reshape(nCores,1) 
-            PrAB_sh[:,:,s] = count_mat_sh[:,:,s]/rows_sum_sh
+            temp1 = count_mat_sh[:,:,s]/rows_sum_sh
+            temp1[np.isnan(temp1)]=0
+            PrAB_sh[:,:,s] = temp1
             nObserved_patterns_all = count_mat_sh[:,:,s].sum()
-            PrA_sh = rows_sum_sh/nObserved_patterns_all
+            temp2 = rows_sum_sh/nObserved_patterns_all
+            temp2[np.isnan(temp2)]=0
+            PrA_sh[s,:] = np.squeeze(temp2)
             
         # now compute pvalues
         pvals = sum_mat/nShuffles
@@ -344,17 +349,16 @@ class AssemblyMethods(AssemblyInfo):
         # also compute the probabilty of observating each node (i.e. assembly: A1,A2,A3); i.e. P(s_t=A1), P(s_t=A2),P(s_t=A3), ...
         nObserved_patterns_all = count_mat_emp.sum()
         PrA_emp = rows_sum/nObserved_patterns_all
-        PrA_emp = PrA_emp.reshape(nCores,1)
+        PrA_emp = PrA_emp.reshape(1,nCores)
         
         return {'pvals':pvals,'count_mat':count_mat_emp,'PrAB_sh':PrAB_sh,'PrAB_emp':PrAB_emp, 'PrA_emp':PrA_emp, 'PrA_sh':PrA_sh}
-    
     
     
     def calc_KL_transitions(self,nShuffles=5000):
         # 1st approach: (Conditional mutual information) Whether the state stransitions of each node (each node separately)
         # is temporally more structured than a purely random process (i.e. process under uniform assumption)
         nCores = self.get_ncores()
-        seq_info = self.calc_assembly_seq(nShuffles)
+        seq_info = self.calc_assembly_seq1(nShuffles)
         PrAB_emp = seq_info['PrAB_emp']
         PrAB_sh = seq_info['PrAB_sh']
         Pr_uni = np.ones_like(PrAB_emp)/nCores # the transition Pr matrix under uniform dist assumption
@@ -377,7 +381,7 @@ class AssemblyMethods(AssemblyInfo):
             
         pvals_KL = sum_mat/nShuffles
         
-        return pvals_KL
+        return {'KL_emp':KL_emp, "pvals_KL":pvals_KL}
             
     
     def calc_MI_transitions(self,nShuffles=5000):        
@@ -385,22 +389,28 @@ class AssemblyMethods(AssemblyInfo):
         # is temporally more structured. MI tells us, how much knowing the current state of the process witll tell us about
         # the future (next state), or vice versa. 
         nCores = self.get_ncores()
-        seq_info = self.calc_assembly_seq(nShuffles)
+        seq_info = self.calc_assembly_seq1(nShuffles)
         PrAB_emp = seq_info['PrAB_emp']
         PrA_emp = seq_info['PrA_emp'] 
-        PrAB_sh = seq_info['PrAB_sh']        
+        PrAB_sh = seq_info['PrAB_sh']  
+        PrA_sh = seq_info['PrA_sh'] 
         MI_emp = 0
+        sum_mat = 0
         
         # (Empirical) compute the MI between current and next (future) state of whole process (i.e. all transitions of all nodes) 
         for i in np.arange(nCores):
-            MI_emp += PrA_emp[i]*np.nansum(PrAB_emp[i,:]*np.log2(PrAB_emp[i,:]/PrA_emp))
-            
+            MI_emp += PrA_emp[0,i]*np.nansum(PrAB_emp[i,:]*np.log2(PrAB_emp[i,:]/PrA_emp))
+        
         # (Suffled) compute the MI between current and next (future) state of whole process (i.e. all transitions of all nodes)   
-#        for s in np.arange(nCores): 
+        for s in np.arange(nShuffles):
+            MI_sh = 0
+            for i  in np.arange(nCores):
+                MI_sh += PrA_sh[s,i]*np.nansum(PrAB_sh[i,:,s]*np.log2(PrAB_sh[i,:,s]/PrA_sh[s,:]))
+            sum_mat += MI_sh>=MI_emp
         
+        pval_MI = sum_mat/nShuffles
         
-        
-        return MI_emp
+        return MI_emp, pval_MI
             
         
         
