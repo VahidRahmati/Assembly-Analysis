@@ -31,6 +31,8 @@ def import_assembly(Dir_DataNames,Active_thr,movie_idx):
     sigFrame_times = sio.loadmat(Dir_current+'\ctrl_130618_ACTIVITY-RASTER.mat')['activity_raster_peaks']
     
     assemblies_data['sigFrame_times'] = sigFrame_times
+   
+        
     
 #    ipdb.set_trace()
     #asmb_keys = assemblies_data.keys()
@@ -68,6 +70,11 @@ class AssemblyInfo(object):
         # assemblies_data: the output of cell-assembly detection method using SGC for one dataset
         self.assemblies = assemblies_data['assemblies'] 
         self.activities = assemblies_data['assembly_pattern_detection']
+        
+        
+        
+        
+        
         self.sigTimes = assemblies_data['sigFrame_times'] - 1 # indices were imported from Matlab
         
     def get_ncores(self):
@@ -208,18 +215,24 @@ class AssemblyMethods(AssemblyInfo):
         ch_size = np.zeros(nChunks)
         ch_size[:]=np.nan
         
+        
         # now count the specif orders of assemblies (repetition time of all observed sequences)
         for cc in np.arange(nChunks):
             ch_start = drifts_mat[cc,1]
             ch_end = drifts_mat[cc+1,0]              
-            ch_label_time = label_time[:,np.where(np.logical_and(sig_times>ch_start, sig_times<ch_end))[0]].copy()
+            ch_label_time = label_time[:,np.where(np.logical_and(sig_times>=ch_start, sig_times<ch_end))[0]].copy()
             ch_label = ch_label_time[1,:]
+            print(ch_label)
+            ipdb.set_trace()
             ch_sig = ch_label_time[0,:]           
             ch_size[cc] = ch_sig.size # the number of assemblies occuring within each chunk of time
+            if cc == 39:
+               ipdb.set_trace()
+        
             if ch_sig.size>0:
                 for i in np.arange(ch_label.size-1):
                     count_mat[ch_label[i],ch_label[i+1]] += 1  
-                    
+                     
         return {'count_mat':count_mat,'ch_size':ch_size}    
     
     
@@ -236,16 +249,15 @@ class AssemblyMethods(AssemblyInfo):
         new_labels = []
         new_label = nCores+1
         z = 0
-        ipdb.set_trace()
+        
         for hh in np.arange(nChunks):
             print(ch_size[hh])
-            if ch_size[hh]>0:
+            if ch_size[hh]>1:
                temp = labels_all[np.arange(z, z+ch_size[hh]).astype(int)]
                new_labels = np.hstack((new_labels,temp,new_label))
-               z = ch_size[hh]
+            z += ch_size[hh]
         
-        
-        
+#        ipdb.set_trace()
 #        labels_x  =
         count_mat_sh = np.zeros((nCores,nCores,nShuffles))
         PrAB_sh = np.zeros_like(count_mat_sh)
