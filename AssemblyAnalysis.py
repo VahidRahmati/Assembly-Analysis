@@ -72,11 +72,6 @@ class AssemblyInfo(object):
         self.activities = assemblies_data['assembly_pattern_detection']
         
         
-        
-        
-        
-        self.sigTimes = assemblies_data['sigFrame_times'] - 1 # indices were imported from Matlab
-        
     def get_ncores(self):
         return self.assemblies.shape[0] # number of core assmblies
        
@@ -174,19 +169,7 @@ class AssemblyInfo(object):
         for c in np.arange(self.get_ncores()):
             freq_vec[c] = self.get_patterns_idx()[c].size/self.get_nsig_patterns_all()   
         return freq_vec*100
-        
-        
-    def get_labeled_times(self):
-        # assign assembly labels to the timing of sig patterns
-        nCores = self.get_ncores()
-        sig_times = self.sigTimes # the timing of all singinifcant frames of all assemblies
-        sig_idx = self.get_patterns_idx()
-        nPatterns = sig_times.size
-        label_time = np.zeros((2,nPatterns))
-        label_time[0,:] = sig_times.transpose()
-        for i in np.arange(nCores):
-            label_time[1,sig_idx[i]] = i # assmeblies are labeled as 1, 2, 3, ...
-        return label_time    
+
    
             
             
@@ -201,8 +184,33 @@ class AssemblyMethods(AssemblyInfo):
         drifts_mat[-1,1] = self.nFrames_av if drifts_mat[-1,1] == self.nFrames_av-1 else drifts_mat[-1,1] 
         drifts_mat = np.vstack((drifts_mat,np.array([self.nFrames_av,self.nFrames_av]))) if drifts_mat[-1,1]!=self.nFrames_av else drifts_mat
         self.drifts_mat = drifts_mat 
-       
+        
+        
+        sigTimes = assemblies_data['sigFrame_times'].transpose() - 1 # indices were imported from Matlab
+        sigTimes_corr = sigTimes.copy() 
+        mm = 0
+        ipdb.set_trace()
+        for i in np.arange(drifts_mat.shape[0]):
+            sigTimes_corr[drifts_mat[i,1]<sigTimes_corr] += drifts_mat[i,1] - drifts_mat[i,0] + mm
+            mm = 1
+        self.sigTimes = sigTimes_corr    
+            
 
+    def get_labeled_times(self):
+        # assign assembly labels to the timing of sig patterns
+        nCores = self.get_ncores()
+        sig_times = self.sigTimes # the timing of all singinifcant frames of all assemblies
+        sig_idx = self.get_patterns_idx()
+        nPatterns = sig_times.size
+        label_time = np.zeros((2,nPatterns))
+        label_time[0,:] = sig_times
+#        ipdb.set_trace()
+        for i in np.arange(nCores):
+            label_time[1,sig_idx[i]] = i # assmeblies are labeled as 1, 2, 3, ...
+        return label_time    
+    
+    
+    
     def calc_transitions(self):
         #
         nCores = self.get_ncores()
@@ -222,13 +230,9 @@ class AssemblyMethods(AssemblyInfo):
             ch_end = drifts_mat[cc+1,0]              
             ch_label_time = label_time[:,np.where(np.logical_and(sig_times>=ch_start, sig_times<ch_end))[0]].copy()
             ch_label = ch_label_time[1,:]
-            print(ch_label)
-            ipdb.set_trace()
             ch_sig = ch_label_time[0,:]           
             ch_size[cc] = ch_sig.size # the number of assemblies occuring within each chunk of time
-            if cc == 39:
-               ipdb.set_trace()
-        
+            ipdb.set_trace()
             if ch_sig.size>0:
                 for i in np.arange(ch_label.size-1):
                     count_mat[ch_label[i],ch_label[i+1]] += 1  
@@ -412,12 +416,14 @@ class AssemblyMethods(AssemblyInfo):
         # (Empirical) compute the MI between current and next (future) state of whole process (i.e. all transitions of all nodes) 
         for i in np.arange(nCores):
             MI_emp += PrA_emp[0,i]*np.nansum(PrAB_emp[i,:]*np.log2(PrAB_emp[i,:]/PrA_emp))
-        
+            
+       
         # (Suffled) compute the MI between current and next (future) state of whole process (i.e. all transitions of all nodes)   
         for s in np.arange(nShuffles):
             MI_sh = 0
             for i  in np.arange(nCores):
                 MI_sh += PrA_sh[s,i]*np.nansum(PrAB_sh[i,:,s]*np.log2(PrAB_sh[i,:,s]/PrA_sh[s,:]))
+            
             sum_mat += MI_sh>=MI_emp
         
         pval_MI = sum_mat/nShuffles
