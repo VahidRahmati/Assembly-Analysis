@@ -43,7 +43,7 @@ def import_assembly(Dir_DataNames,Active_thr,movie_idx):
 def import_spike_trains(Dir_DataNames,Dir_SpikeTrains,movie_idx,nRows=13,nCols=17):
     
     Dir_current = os.getcwd() # pwd
-    
+    ipdb.set_trace()
 #    os.chdir(Dir_DataNames)
 #    from movie_names import names #import the names of the movies as "names" list variable from the movie_names.py
 #    os.chdir(Dir_current)
@@ -189,9 +189,9 @@ class AssemblyMethods(AssemblyInfo):
         sigTimes = assemblies_data['sigFrame_times'].transpose() - 1 # indices were imported from Matlab
         sigTimes_corr = sigTimes.copy() 
         mm = 0
-        ipdb.set_trace()
+#        ipdb.set_trace()
         for i in np.arange(drifts_mat.shape[0]):
-            sigTimes_corr[drifts_mat[i,1]<sigTimes_corr] += drifts_mat[i,1] - drifts_mat[i,0] + mm
+            sigTimes_corr[drifts_mat[i,0]<sigTimes_corr] += drifts_mat[i,1] - drifts_mat[i,0] + mm
             mm = 1
         self.sigTimes = sigTimes_corr    
             
@@ -223,7 +223,7 @@ class AssemblyMethods(AssemblyInfo):
         ch_size = np.zeros(nChunks)
         ch_size[:]=np.nan
         
-        
+        sig_times2 = []
         # now count the specif orders of assemblies (repetition time of all observed sequences)
         for cc in np.arange(nChunks):
             ch_start = drifts_mat[cc,1]
@@ -234,9 +234,11 @@ class AssemblyMethods(AssemblyInfo):
             ch_size[cc] = ch_sig.size # the number of assemblies occuring within each chunk of time
             ipdb.set_trace()
             if ch_sig.size>0:
+                sig_times2 = np.hstack((sig_times2,ch_sig))
                 for i in np.arange(ch_label.size-1):
                     count_mat[ch_label[i],ch_label[i+1]] += 1  
-                     
+             
+        ipdb.set_trace()             
         return {'count_mat':count_mat,'ch_size':ch_size}    
     
     
