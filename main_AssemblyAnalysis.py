@@ -30,7 +30,7 @@ Dir_SpikeTrains = 'D:\Data\\2nd Project\Data\Data_arranged\All\\'
 
 #a = imass(Dir_DataNames,Dir_current,Active_thr,movie_idx)
 
-spdata = aa.import_spike_trains(Dir_DataNames, Dir_SpikeTrains, movie_idx)
+spdata = aa.import_spike_trains(Dir_DataNames, Dir_SpikeTrains, movie_idx, nFrames_orig = 80000)
 
 assdata = aa.import_assembly(Dir_DataNames, Active_thr, movie_idx)
 
