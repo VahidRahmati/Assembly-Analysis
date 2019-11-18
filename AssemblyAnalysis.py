@@ -76,18 +76,18 @@ class AssemblyInfo(object):
      In addition, compute some basic mearures sucuh as the relative, occurence frequency of each assembly.
      The main analysis are implemented in the AssemblyMethods sub-class (see below)"""
 
-
     def __init__(self, assemblies_data):
         """ assemblies_data: the output of cell-assembly detection method using SGC for one dataset"""
+        
         self.assemblies = assemblies_data['assemblies'] 
         self.activities = assemblies_data['assembly_pattern_detection']
         
         
     def get_ncores(self):
         """ get the number of core assmblies"""
+        
         return self.assemblies.shape[0] 
-       
-      
+            
 #class Assemblies(InfoAssembly):
 #
 #    def __init__(self, x):
@@ -96,10 +96,13 @@ class AssemblyInfo(object):
        
     def get_core_PatchIdx(self):
         """ get the spatial postion of core patches of each assembly, in the FOV"""
+        
         return self.assemblies - 1
        
+        
     def get_core_size(self):
         """ extract the spatial size of the core of each assembly"""
+        
         nCores = self.get_ncores() # number of core assmblies
         core_size = np.zeros(nCores) # size of each core assmbly ([nPaches])
         core_size[:]= np.nan
@@ -115,26 +118,31 @@ class AssemblyInfo(object):
                
     def get_sig_patterns_all(self):
         """ get the significant activity patterns of all detected assmblies"""
+        
         return self.activities['activityPatterns'][0,0].squeeze() 
 
     
     def get_nsig_patterns_all(self):
         """ get the number of all significant patterns of all aseemblie"""
+        
         return self.get_sig_patterns_all().size 
 
         
     def get_nunits(self):
         """ get the number of units per each assembly""" 
+        
         return self.get_sig_patterns_all()[0].size
 
     
     def get_affinity_vec(self):
         """ get the vectors of cell affinities of core assemblies (one vector, for each core)"""
+        
         return self.activities['assemblyActivityPatterns'][0,0].squeeze()
 
     
     def get_affinity_mat(self,nRows=13,nCols=17):
         """get the spatially arranged matrices of core assemblies (one matrix representing one FOV, for each core)"""
+        
         nCores = self.get_ncores()
         aff_list = [[]]*nCores
         for c in np.arange(nCores):
@@ -145,14 +153,17 @@ class AssemblyInfo(object):
     def get_patterns_idx(self):
         """ get the indices of all significant "patterns" of "each" assembly (i.e. incl. also those NOT used for determining the 
         spatial pattern of each core assembly)"""
+        
         CommStrut_data = self.activities['patternSimilarityAnalysis'][0,0]['communityStructure'][0,0].copy()
         asmbPattern_idx = CommStrut_data['assignment'][0,0].squeeze().copy() # the indices of all sig patterns of each assembly  (i.e. incl. also those NOT used for determining the spatial pattern of each core assembly)
         asmbPattern_idx = asmbPattern_idx - 1 # note that the indices were importd from Matlab
         return asmbPattern_idx
     
+    
     def get_patterns_raster(self,nRows=13,nCols=17):
         """ create a numpy array of nCore lists of all sig patterns of each assembly, where each list
         belongs to one assembly and has the shape of nRows=nCells, and nCols= nSigPatternsOfThatAssembly"""
+        
         nCores = self.get_ncores()
         patterns_mat = [[]]*nCores
         
@@ -169,11 +180,13 @@ class AssemblyInfo(object):
     def get_affinty_patterns_idx(self):
         """ get the indices of significant frames which have been used to compute the affinity matrix
         (hint: their spatial average gives the "priliminary" saptial pattern ...)"""
+        
         return self.activities['assemblyIActivityPatterns'][0,0].squeeze() - 1 # note that the indices were imported from Matlab
     
                                                                  
     def get_count_dist(self): 
-        """ get probability distribution of potential number of communities (i.e. cell assemblies)"""                          
+        """ get probability distribution of potential number of communities (i.e. cell assemblies)"""       
+                   
         CommStrut_data = self.activities['patternSimilarityAnalysis'][0,0]['communityStructure'][0,0].copy()
         count_dist = CommStrut_data['countDistribution'][0,0].copy() 
         return count_dist
@@ -181,13 +194,13 @@ class AssemblyInfo(object):
     
     def get_assemble_relfreq(self):
         """ compute the fraction of significant patterns, for each assembly (relative frequency of assembly occurrence)""" 
+        
         freq_vec = np.zeros(self.get_ncores())
         for c in np.arange(self.get_ncores()):
             freq_vec[c] = self.get_patterns_idx()[c].size/self.get_nsig_patterns_all()   
         return freq_vec*100
 
-   
-            
+             
             
 class AssemblyMethods(AssemblyInfo):
     """ Applying measures of information-theory, similarity, sequence detection, etc, to the assess the spatiotemporal strutures 
@@ -218,6 +231,7 @@ class AssemblyMethods(AssemblyInfo):
 
     def get_labeled_times(self):
         """ assign assembly labels to the timing of significant frames of each assembly"""
+        
         nCores = self.get_ncores()
         sig_times = self.sigTimes # the timing of all singinifcant frames of all assemblies
         sig_idx = self.get_patterns_idx()
@@ -234,6 +248,7 @@ class AssemblyMethods(AssemblyInfo):
     def calc_transitions(self):
         """ calculate tehe transition matrix of in-time evolution of assemblies, where each assembly
         is considered as an state """
+        
         nCores = self.get_ncores()
         label_time = self.get_labeled_times().astype(int)
         sig_times = label_time[0,].copy()
@@ -260,7 +275,10 @@ class AssemblyMethods(AssemblyInfo):
     
     
     def calc_assembly_seq3(self,nShuffles=5000):
-        # compute the pvalues of assembly in-time sequences
+        """ Compute the pvalues of assembly in-time transitions, based on transition-divergence.
+        Third shuffling method: The drift timings are considered as new labels and are 
+        shuffled together with assembly labels."""
+        
         nCores = self.get_ncores()
         label_time = self.get_labeled_times().astype(int)
         sig_all = label_time[0,:]
@@ -280,7 +298,6 @@ class AssemblyMethods(AssemblyInfo):
             z += ch_size[hh]
         
         ipdb.set_trace()
-#        labels_x  =
         count_mat_sh = np.zeros((nCores,nCores,nShuffles))
         PrAB_sh = np.zeros_like(count_mat_sh)
         sum_mat = np.zeros_like(count_mat_emp)
@@ -289,7 +306,10 @@ class AssemblyMethods(AssemblyInfo):
         
     
     def calc_assembly_seq1(self,nShuffles=5000):
-        # compute the pvalues of assembly in-time sequences
+        """ Compute the pvalues of assembly in-time transitions, based on transition-divergence.
+        First shuffling method: The drift periods are exlucded, and shuffling is performed 
+        wihout considering any chunk (caveat: this will lead to a bigger number of transisitons."""
+        
         nCores = self.get_ncores()
         label_time = self.get_labeled_times().astype(int)
         sig_all = label_time[0,:]
@@ -346,7 +366,10 @@ class AssemblyMethods(AssemblyInfo):
     
     
     def calc_assembly_seq2(self,nShuffles=5000):
-        # compute the pvalues of assembly in-time sequences
+        """ Compute the pvalues of assembly in-time transitions, based on transition-matrix.
+        Second shuffling method: only the aseembly labeles are shuffled across chunks, and 
+        drift periods remain fixed."""
+        
         nCores = self.get_ncores()
         label_time = self.get_labeled_times().astype(int)
         sig_all = label_time[0,:]
@@ -383,14 +406,15 @@ class AssemblyMethods(AssemblyInfo):
         # also compute the probabilty of observating each node (i.e. assembly: A1,A2,A3); i.e. P(s_t=A1), P(s_t=A2),P(s_t=A3), ...
         nObserved_patterns_all = count_mat_emp.sum()
         PrA_emp = rows_sum/nObserved_patterns_all
-        PrA_emp = PrA_emp.reshape(1,nCores)
+        PrA_emp = PrA_emp.reshape(1,nCores)    
         
         return {'pvals':pvals,'count_mat':count_mat_emp,'PrAB_sh':PrAB_sh,'PrAB_emp':PrAB_emp, 'PrA_emp':PrA_emp, 'PrA_sh':PrA_sh}
     
     
     def calc_KL_transitions(self,nShuffles=5000):
-        # 1st approach: (Conditional mutual information) Whether the state stransitions of each node (each node separately)
-        # is temporally more structured than a purely random process (i.e. process under uniform assumption)
+        """ Use KL-divergence to assess whether the state stransitions of each  node (each node separately; a node = a neural assembly)  
+        is temporally more structured than a purely random process (i.e. process under uniform assumption), based on KL-divergence"""
+        
         nCores = self.get_ncores()
         seq_info = self.calc_assembly_seq1(nShuffles)
         PrAB_emp = seq_info['PrAB_emp']
@@ -411,17 +435,17 @@ class AssemblyMethods(AssemblyInfo):
             KL_sh[:] = np.nan 
             for i in np.arange(nCores):
                 KL_sh[0,i] =  np.nansum(PrAB_sh[i,:,s]*np.log2(PrAB_sh[i,:,s]/Pr_uni[i,:]))
-            sum_mat += KL_sh>=KL_emp
-            
-        pvals_KL = sum_mat/nShuffles
+            sum_mat += KL_sh>=KL_emp            
+        pvals_KL = sum_mat/nShuffles   
         
         return {'KL_emp':KL_emp, "pvals_KL":pvals_KL}
             
     
-    def calc_MI_transitions(self,nShuffles=5000):        
-        # 2nd approach: (Mutual information) Whether the whole observed state transitions of all nodes (together)
-        # is temporally more structured. MI tells us, how much knowing the current state of the process witll tell us about
-        # the future (next state), or vice versa. 
+    def calc_MI_transitions(self,nShuffles=5000):    
+        """ Use Mutual Information to asssess whether the whole observed state transitions of all neural nodes (together) is temporally  
+        more structured than that of shuffled data. MI tells us, how much knowing the current state of the process witll tell us about
+        the future (next state), or vice versa. """
+        
         nCores = self.get_ncores()
         seq_info = self.calc_assembly_seq1(nShuffles)
         PrAB_emp = seq_info['PrAB_emp']
@@ -434,49 +458,21 @@ class AssemblyMethods(AssemblyInfo):
         # (Empirical) compute the MI between current and next (future) state of whole process (i.e. all transitions of all nodes) 
         for i in np.arange(nCores):
             MI_emp += PrA_emp[0,i]*np.nansum(PrAB_emp[i,:]*np.log2(PrAB_emp[i,:]/PrA_emp))
-            
-       
+                
         # (Suffled) compute the MI between current and next (future) state of whole process (i.e. all transitions of all nodes)   
         for s in np.arange(nShuffles):
             MI_sh = 0
             for i  in np.arange(nCores):
-                MI_sh += PrA_sh[s,i]*np.nansum(PrAB_sh[i,:,s]*np.log2(PrAB_sh[i,:,s]/PrA_sh[s,:]))
-            
-            sum_mat += MI_sh>=MI_emp
-        
-        pval_MI = sum_mat/nShuffles
+                MI_sh += PrA_sh[s,i]*np.nansum(PrAB_sh[i,:,s]*np.log2(PrAB_sh[i,:,s]/PrA_sh[s,:]))           
+            sum_mat += MI_sh>=MI_emp       
+        pval_MI = sum_mat/nShuffles        
         
         return MI_emp, pval_MI
             
         
-        
-        
-        
-        
-        
-#    def calc_assembly_seq(self,nShuffles =500):
-#        # compute the pvalues of assembly in-time sequences
-#        label_time = self.get_labeled_times().astype(int)
-#        sig_all = label_time[0,:]
-#        count_mat_emp = self.calc_transitions()
-#        sum_mat = np.zeros_like(count_mat_emp)
-#        # for computing the count matrix in shuffled data, we don't care about the shuffles
-#        for s in np.arange(nShuffles):
-#            count_mat_sh = np.zeros_like(count_mat_emp)
-#            label_all = label_time[1,:].copy()
-#            np.random.shuffle(label_all)
-#            for i in np.arange(sig_all.size-1):
-#                count_mat_sh[label_all[i],label_all[i+1]] += 1  
-#            sum_mat += count_mat_sh>=count_mat_emp
-#        
-#        # now compute pvalues
-#        pvals = sum_mat/nShuffles
-#        return pvals
-    
-        
-    
     def calc_irregularity(self):
-        # compute the in-time irregularity of all sig patterns, regardless of to whatever assembly they belong to 
+        """ calculate the in-time irregularity of all assembly significant patterns, regardless of to whatever assembly they belong to."""
+        
         sig_times = self.sigTimes # the timing of all singinifcant frames of all assemblies
         drifts_mat  = self.drifts_mat 
         nDrifts = drifts_mat.shape[0]
@@ -492,19 +488,19 @@ class AssemblyMethods(AssemblyInfo):
             isi_all += isi_vec.tolist()
             
             if isi_vec.size>=2:
-               for i in np.arange(isi_vec.size-1):
-                   
+               for i in np.arange(isi_vec.size-1):                   
                    sum_CV2 += 2*np.absolute(isi_vec[i]-isi_vec[i+1])/(isi_vec[i]+isi_vec[i+1])
-               n_isi += isi_vec.size 
-               
+               n_isi += isi_vec.size               
         CV2 = sum_CV2/(n_isi-1)
         isi_all = np.array(isi_all)
         CV = np.nanstd(isi_all)/np.nanmean(isi_all)        
+        
         return CV2, CV, isi_all
                     
     
     def calc_assemble_freq(self):
-        # the temporal frequency of each assembly, during the available recording time (freq in [1/frame])     
+        """ calculate the temporal frequency of each assembly, during the available recording time (freq in [1/frame])"""
+        
         Tfreq_vec = np.zeros(self.get_ncores()) 
         for c in np.arange(self.get_ncores()):
             Tfreq_vec[c] = self.get_patterns_idx()[c].size/self.nFrames_av # in [1/frame]
@@ -512,8 +508,9 @@ class AssemblyMethods(AssemblyInfo):
     
     
     def calc_cohess_approx(self):
-        #  Cohessivenss: average coupling of each cell to the the presence of specific assembly, i.e. 
-        # (Approx. approach): average of the affinities of core cells of that assembly   
+        """  calculate the cohessivenss: average coupling of each cell to the the presence of specific assembly; 
+        (Approx. approach): average of the affinities of core cells of that assembly"""   
+        
         cho_approx = np.zeros(self.get_ncores())
         temp = self.get_affinity_vec() # an array of ncorr number lists
         temp = np.vstack((temp[:])) # now it is matrix with ncorr row and 221 columns
@@ -524,8 +521,9 @@ class AssemblyMethods(AssemblyInfo):
 
 
     def calc_cohess_exact(self):
-        #  Cohessivenss: average coupling of each cell to the the presence of specific assembly, i.e. 
-        # (Exact approach): average of p( cell | Assembly ) over all cells of that assembly   
+        """ calculate the cohessivenss: average coupling of each cell to the the presence of specific assembly; 
+        (Exact approach): average of p( cell | Assembly ) over all cells of that assembly"""
+        
         cho_exact = np.zeros(self.get_ncores())
         for c in np.arange(self.get_ncores()):
             nPatterns = self.get_patterns_raster()[c].shape[1]
@@ -536,7 +534,7 @@ class AssemblyMethods(AssemblyInfo):
     
     
     def calc_initiativeness(self):
-        # Initiativeness (drivingness): p(assembly | cell)
+        """ calculate the initiativeness: p(assembly | cell)"""
         nCores = self.get_ncores()
         raster_full = np.hstack((self.get_patterns_raster()[:])) # raster matrix of all sig patterns of all assemblies
         cellActTimesTot_vec = np.sum(raster_full,axis=1)
@@ -549,8 +547,9 @@ class AssemblyMethods(AssemblyInfo):
          
     
     def calc_spatial_overlap(self,ss_thr):
-        # Compute the degree of overlap beetween the core assempbly spatial patterns, using the Dice similarity measures
-        # Determine whether an assembly is the sub-assembly of another assembly, based on the spatail patterns of their cores
+        """ calculate the degree of overlap beetween the core assempbly spatial patterns, using the Dice similarity measures.
+        Also, determine whether an assembly is a sub-assembly of another assembly, based on the spatail patterns of their cores"""
+        
         nCores = self.get_ncores()
         DSC = np.zeros((nCores,nCores))
         SS = np.zeros((nCores,nCores))
@@ -576,7 +575,8 @@ class AssemblyMethods(AssemblyInfo):
     
     
     def calc_pattern_reliability(self):
-        # calculate the average Edist-distance between the core assembly pattern and each of its sig patterns  
+        """ calculate the average Edist-distance between the spatial pattern of eacg core assembly and each of its significant patterns"""  
+        
         nCores= self.get_ncores()
         ed_cores_mats = [[]]*nCores
         ed_cores_means = [[]]*nCores
@@ -594,11 +594,18 @@ class AssemblyMethods(AssemblyInfo):
             for i in np.arange(nPatterns):             
                 ed_mat[i]=ed.distance(core_binary.tolist(),raster[:,i].tolist())
   
-#            ipdb.set_trace()
             ed_cores_mats[c] = ed_mat
             ed_cores_means[c] = np.nanmean(ed_mat)
         return ed_cores_mats,  ed_cores_means    
     
+    
+    
+#%% draft code    
+    
+    
+    
+                     
+
 #    def calc_pattern_reliability(self):
 #        # calculate the average Edist-distance between the core assembly pattern and each of its sig patterns  
 #        nCores= self.get_ncores()
@@ -614,12 +621,7 @@ class AssemblyMethods(AssemblyInfo):
 #                    ed_mat[ii,jj]=ed.SequenceMatcher(raster[:,ii].tolist(),raster[:,jj].tolist()).distance()
 #            ed_cores_mats[c] = ed_mat
 #            ed_cores_means[c] = np.nanmean(ed_mat[np.tril_indices_from(ed_mat,-1)])
-#        return ed_cores_mats,  ed_cores_means
-                     
-    def calc_mi_patterns(self):
-        nCores = self.get_ncores()
-                  
-     
+#        return ed_cores_mats,  ed_cores_means     
      
     
 #%% class of info_assembly
