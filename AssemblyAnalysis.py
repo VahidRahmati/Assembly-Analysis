@@ -1,8 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Oct 28 16:39:28 2019
+The draft code for analysing neural assembly data detected from calcium imaging data.
+The code mainly contains the implementation of several information-theory measures (e.g. MI, KL, Entropy),
+firing statistic measures (e.g. CV2), similarity analysis (e.g. Dice similarity, edit distance), as well
+as some population-coupling mesures (e.g. affinity, cohessiveness).  
 
-@author: rahmati
+The codes are currently applied to the neural assembly detection results of a single recording data (calcium 
+imaging movie), and  will be later applied to the whole dataset.
+ 
+@author: Vahid Rahmati
 """
 import editdistance as ed
 import ipdb # ipdb.set_trace()
@@ -14,8 +20,15 @@ import matplotlib.pyplot as plt
 
 
 def import_assembly(Dir_DataNames,Active_thr,movie_idx):
-   
+    """ Import the data of detected neural assmblies from MAT files""" 
+    
     Dir_current = os.getcwd() # pwd
+    
+    assemblies_data = sio.loadmat(Dir_current+'\ctrl_130618_SGC-ASSEMBLIES.mat')
+    sigFrame_times = sio.loadmat(Dir_current+'\ctrl_130618_ACTIVITY-RASTER.mat')['activity_raster_peaks']
+    
+    assemblies_data['sigFrame_times'] = sigFrame_times
+
     
 #    os.chdir(Dir_DataNames)
 #    #sys.path.append('D:\Dropbox\Project\PAPER\JNS 2018\Video_2018 - vr\Main analysis\Template Matching')
@@ -27,22 +40,24 @@ def import_assembly(Dir_DataNames,Active_thr,movie_idx):
 #    dir_assmblies = 'D:\Data\\2nd Project\\Data\\Data_arranged\\All\\Assemblies\\thr' + str(Active_thr) + '\\' 
 #    assemblies_data = sio.loadmat(dir_assmblies+ name_current + '_SGC-ASSEMBLIES.mat')
 #    ipdb.set_trace()
-    assemblies_data = sio.loadmat(Dir_current+'\ctrl_130618_SGC-ASSEMBLIES.mat')
-    sigFrame_times = sio.loadmat(Dir_current+'\ctrl_130618_ACTIVITY-RASTER.mat')['activity_raster_peaks']
-    
-    assemblies_data['sigFrame_times'] = sigFrame_times
+#    asmb_keys = assemblies_data.keys()    
    
-        
+
     
-#    ipdb.set_trace()
-    #asmb_keys = assemblies_data.keys()
     return assemblies_data
 
 
     
 def import_spike_trains(Dir_DataNames,Dir_SpikeTrains,movie_idx, nFrames_orig = 80000, nRows=13,nCols=17):
+    """ Import the corresponding, reconstructed event trains and meta-data of each movie from MAT files"""
     
     Dir_current = os.getcwd() # pwd
+    eTrain_file = sio.loadmat(Dir_current+'\Trains_rec_ctrl_130618.mat')
+    a = eTrain_file['Trains_rec']['raw'][0,0]
+    b = eTrain_file['Trains_rec']['raw'][0,0].reshape(nRows*nCols,80000,order='F')
+    
+    drifts_mat = eTrain_file['Trains_rec']['drifts_mat'][0,0]
+    nFrames_av = eTrain_file['Trains_rec']['nFramesWithoutDrifts'][0,0][0,0] # no. of avialable frames after excluding the animal movement periods
     
 #    os.chdir(Dir_DataNames)
 #    from movie_names import names #import the names of the movies as "names" list variable from the movie_names.py
@@ -51,20 +66,15 @@ def import_spike_trains(Dir_DataNames,Dir_SpikeTrains,movie_idx, nFrames_orig = 
 #    name_current = names[movie_idx] # the name of the current movie to analyze
 #    eTrain_file = sio.loadmat(Dir_SpikeTrains+name_current+'.mat')
 #    eTrain_keys = eTrain_file.keys()
-    
-    eTrain_file = sio.loadmat(Dir_current+'\Trains_rec_ctrl_130618.mat')
-    a = eTrain_file['Trains_rec']['raw'][0,0]
-    b = eTrain_file['Trains_rec']['raw'][0,0].reshape(nRows*nCols,80000,order='F')
-    
-#    ipdb.set_trace()
-    drifts_mat = eTrain_file['Trains_rec']['drifts_mat'][0,0]
-    nFrames_av = eTrain_file['Trains_rec']['nFramesWithoutDrifts'][0,0][0,0] # no. of avialable frames after excluding the animal movement periods
-    
+        
     return {"nFrames_av":nFrames_av, 'drifts_mat':drifts_mat, "nFrames_orig":nFrames_orig}    
 
 
-#%% Read assbly detection results and compute basic measures
+#%%
 class AssemblyInfo(object):
+    """ Extract the assembly detection results regarding size, frequency, spatial shape, etc. 
+     In addition, compute some basic mearures sucuh as the relative, occurence frequency of each assembly"""
+
 
     def __init__(self, assemblies_data):
         """ assemblies_data: the output of cell-assembly detection method using SGC for one dataset"""
@@ -73,7 +83,8 @@ class AssemblyInfo(object):
         
         
     def get_ncores(self):
-        return self.assemblies.shape[0] # number of core assmblies
+        """ get the number of core assmblies"""
+        return self.assemblies.shape[0] 
        
       
 #class Assemblies(InfoAssembly):
@@ -83,9 +94,11 @@ class AssemblyInfo(object):
 #       self.core_Patchidx = self.assemblies - 1 
        
     def get_core_PatchIdx(self):
+        """ get the spatial postion of core patches of each assembly, in the FOV"""
         return self.assemblies - 1
        
-    def get_core_size(self):  
+    def get_core_size(self):
+        """ extract the spatial size of the core of each assembly"""
         nCores = self.get_ncores() # number of core assmblies
         core_size = np.zeros(nCores) # size of each core assmbly ([nPaches])
         core_size[:]= np.nan
@@ -100,26 +113,27 @@ class AssemblyInfo(object):
 
                
     def get_sig_patterns_all(self):
-        # Sig activity aptterns of all assmblies
+        """ get the significant activity patterns of all detected assmblies"""
         return self.activities['activityPatterns'][0,0].squeeze() 
 
     
     def get_nsig_patterns_all(self):
-        # number of all sig patterns of all aseemblie
+        """ get the number of all significant patterns of all aseemblie"""
         return self.get_sig_patterns_all().size 
 
         
     def get_nunits(self):
+        """ get the number of units per each assembly""" 
         return self.get_sig_patterns_all()[0].size
 
     
     def get_affinity_vec(self):
-        # the vectors of cell affinities of core assemblies (each core one vector)
+        """ get the vectors of cell affinities of core assemblies (one vector, for each core)"""
         return self.activities['assemblyActivityPatterns'][0,0].squeeze()
 
     
     def get_affinity_mat(self,nRows=13,nCols=17):
-        # the spatially arranged matrices of core assemblies (each core one matrix representing one FOV)
+        """get the spatially arranged matrices of core assemblies (one matrix representing one FOV, for each core)"""
         nCores = self.get_ncores()
         aff_list = [[]]*nCores
         for c in np.arange(nCores):
@@ -128,15 +142,16 @@ class AssemblyInfo(object):
   
       
     def get_patterns_idx(self):
-        # the indices of all sig "patterns" of "each" assembly (i.e. incl. also those NOT used for determining the spatial pattern of each core assembly)
+        """ get the indices of all significant "patterns" of "each" assembly (i.e. incl. also those NOT used for determining the 
+        spatial pattern of each core assembly)"""
         CommStrut_data = self.activities['patternSimilarityAnalysis'][0,0]['communityStructure'][0,0].copy()
         asmbPattern_idx = CommStrut_data['assignment'][0,0].squeeze().copy() # the indices of all sig patterns of each assembly  (i.e. incl. also those NOT used for determining the spatial pattern of each core assembly)
         asmbPattern_idx = asmbPattern_idx - 1 # note that the indices were importd from Matlab
         return asmbPattern_idx
     
     def get_patterns_raster(self,nRows=13,nCols=17):
-        # a numpy array of nCore lists of all sig patterns of each assembly, 
-        # where each list belong to one assembly and has the shape of nRows=nCells, and nCols= nSigPatternsOfThatAssembly
+        """ create a numpy array of nCore lists of all sig patterns of each assembly, where each list
+        belongs to one assembly and has the shape of nRows=nCells, and nCols= nSigPatternsOfThatAssembly"""
         nCores = self.get_ncores()
         patterns_mat = [[]]*nCores
         
@@ -151,20 +166,20 @@ class AssemblyInfo(object):
         
     
     def get_affinty_patterns_idx(self):
-        """ the indices of sig frames which used to compute the affinity matrix
-        (their spatial average gives the "priliminary" saptial pattern ...)"""
+        """ get the indices of significant frames which have been used to compute the affinity matrix
+        (hint: their spatial average gives the "priliminary" saptial pattern ...)"""
         return self.activities['assemblyIActivityPatterns'][0,0].squeeze() - 1 # note that the indices were imported from Matlab
     
                                                                  
     def get_count_dist(self): 
-        # Pr. distribution of potential number of communities (i.e. cell assemblies)                           
+        """ get probability distribution of potential number of communities (i.e. cell assemblies)"""                          
         CommStrut_data = self.activities['patternSimilarityAnalysis'][0,0]['communityStructure'][0,0].copy()
         count_dist = CommStrut_data['countDistribution'][0,0].copy() 
         return count_dist
 
     
     def get_assemble_relfreq(self):
-        # the fraction of sig patterns, for each assembly 
+        """ compute the fraction of significant patterns, for each assembly (relative frequency of assembly occurrence)""" 
         freq_vec = np.zeros(self.get_ncores())
         for c in np.arange(self.get_ncores()):
             freq_vec[c] = self.get_patterns_idx()[c].size/self.get_nsig_patterns_all()   
@@ -174,6 +189,8 @@ class AssemblyInfo(object):
             
             
 class AssemblyMethods(AssemblyInfo):
+    """ Applying measures of information-theory, similarity, sequence detection, etc, to the assess the spatiotemporal strutures 
+    and dynamics of different neural assemblies detected in a single data set"""
     
     def __init__(self,assemblies_data, sptrains_data=None):
         super(AssemblyMethods,self).__init__(assemblies_data)
@@ -190,7 +207,6 @@ class AssemblyMethods(AssemblyInfo):
         sigTimes = assemblies_data['sigFrame_times'].transpose() - 1 # indices were imported from Matlab
         sigTimes_corr = sigTimes.copy() 
         mm = 0
-#        ipdb.set_trace()
         for i in np.arange(drifts_mat.shape[0]):
             sigTimes_corr[drifts_mat[i,0]<sigTimes_corr] += drifts_mat[i,1] - drifts_mat[i,0] + mm
             mm = 1
