@@ -73,7 +73,8 @@ def import_spike_trains(Dir_DataNames,Dir_SpikeTrains,movie_idx, nFrames_orig = 
 #%%
 class AssemblyInfo(object):
     """ Extract the assembly detection results regarding size, frequency, spatial shape, etc. 
-     In addition, compute some basic mearures sucuh as the relative, occurence frequency of each assembly"""
+     In addition, compute some basic mearures sucuh as the relative, occurence frequency of each assembly.
+     The main analysis are implemented in the AssemblyMethods sub-class (see below)"""
 
 
     def __init__(self, assemblies_data):
@@ -194,16 +195,18 @@ class AssemblyMethods(AssemblyInfo):
     
     def __init__(self,assemblies_data, sptrains_data=None):
         super(AssemblyMethods,self).__init__(assemblies_data)
+        
         self.nFrames_av = sptrains_data['nFrames_av']
         self.nFrames_orig = sptrains_data['nFrames_orig'] 
         
+        # extract the movement-periods (drifts) of mouse during recording
         drifts_mat = sptrains_data['drifts_mat'] - 1 # indices were imported from Matlab
         drifts_mat = np.vstack((np.array([0,0]),drifts_mat)) if drifts_mat[0,0]!=0 else drifts_mat
         drifts_mat[-1,1] = self.nFrames_av if drifts_mat[-1,1] == self.nFrames_av-1 else drifts_mat[-1,1] 
         drifts_mat = np.vstack((drifts_mat,np.array([self.nFrames_orig,self.nFrames_orig]))) if drifts_mat[-1,1]!=self.nFrames_av else drifts_mat
-        self.drifts_mat = drifts_mat 
+        self.drifts_mat = drifts_mat # a matrix of the onset and ending times of drift periods 
         
-        
+        # extract the the timing or occurrence of each assembly, during reociding (based on the peak significant frames)  
         sigTimes = assemblies_data['sigFrame_times'].transpose() - 1 # indices were imported from Matlab
         sigTimes_corr = sigTimes.copy() 
         mm = 0
@@ -214,7 +217,7 @@ class AssemblyMethods(AssemblyInfo):
             
 
     def get_labeled_times(self):
-        # assign assembly labels to the timing of sig patterns
+        """ assign assembly labels to the timing of significant frames of each assembly"""
         nCores = self.get_ncores()
         sig_times = self.sigTimes # the timing of all singinifcant frames of all assemblies
         sig_idx = self.get_patterns_idx()
@@ -223,13 +226,14 @@ class AssemblyMethods(AssemblyInfo):
         label_time[0,:] = sig_times
 #        ipdb.set_trace()
         for i in np.arange(nCores):
-            label_time[1,sig_idx[i]] = i # assmeblies are labeled as 1, 2, 3, ...
+            label_time[1,sig_idx[i]] = i # assmeblies are labeled as 0, 1, 2, 3, ...
         return label_time    
     
     
     
     def calc_transitions(self):
-        #
+        """ calculate tehe transition matrix of in-time evolution of assemblies: Each assembly
+        is considered as an state """
         nCores = self.get_ncores()
         label_time = self.get_labeled_times().astype(int)
         sig_times = label_time[0,].copy()
