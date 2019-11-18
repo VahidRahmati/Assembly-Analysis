@@ -23,5 +23,5 @@ Dir_SpikeTrains = 'D:\Data\\2nd Project\Data\Data_arranged\All\\' # dir to recon
 
 spdata = aa.import_spike_trains(Dir_DataNames, Dir_SpikeTrains, movie_idx, nFrames_orig = 80000)
 asmb_data = aa.import_assembly(Dir_DataNames, Active_thr, movie_idx)
-
+aa.AssemblyMethods(asmb_data,spdata).calc_transitions()
 

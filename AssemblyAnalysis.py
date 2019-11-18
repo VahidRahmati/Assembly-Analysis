@@ -41,9 +41,7 @@ def import_assembly(Dir_DataNames,Active_thr,movie_idx):
 #    assemblies_data = sio.loadmat(dir_assmblies+ name_current + '_SGC-ASSEMBLIES.mat')
 #    ipdb.set_trace()
 #    asmb_keys = assemblies_data.keys()    
-   
-
-    
+      
     return assemblies_data
 
 
@@ -129,7 +127,7 @@ class AssemblyInfo(object):
 
         
     def get_nunits(self):
-        """ get the number of units per each assembly""" 
+        """ get the number of recorded cells """ 
         
         return self.get_sig_patterns_all()[0].size
 
@@ -199,9 +197,9 @@ class AssemblyInfo(object):
         for c in np.arange(self.get_ncores()):
             freq_vec[c] = self.get_patterns_idx()[c].size/self.get_nsig_patterns_all()   
         return freq_vec*100
-
              
-            
+
+#%%            
 class AssemblyMethods(AssemblyInfo):
     """ Applying measures of information-theory, similarity, sequence detection, etc, to the assess the spatiotemporal strutures 
     and dynamics of different neural assemblies detected in a single data set"""
@@ -241,12 +239,51 @@ class AssemblyMethods(AssemblyInfo):
 #        ipdb.set_trace()
         for i in np.arange(nCores):
             label_time[1,sig_idx[i]] = i # assmeblies are labeled as 0, 1, 2, 3, ...
+      
         return label_time    
-    
-    
-    
+
+
+    def calc_size_corr(self):
+        """ calculate the XXX """
+        
+        nCores = self.get_ncores()
+        label_time = self.get_labeled_times().astype(int)
+        sig_times = label_time[0,].copy()
+        drifts_mat  = self.drifts_mat         
+        nDrifts = drifts_mat.shape[0]
+        nChunks = nDrifts - 1 # note that we have added virtual drifts to the first and end of recoding (see the importing code above)        
+        count_mat = np.zeros((nCores,nCores))
+        ch_size = np.zeros(nChunks)
+        ch_size[:] = np.nan
+        sig_patterns = self.get_sig_patterns_all().copy()
+        new_label = nCores
+        size_vec = []
+        
+        # now count the specif orders of assemblies (repetition time of all observed sequences)
+        for cc in np.arange(nChunks):
+            ch_start = drifts_mat[cc,1]
+            ch_end = drifts_mat[cc+1,0]
+            ch_indices = np.where(np.logical_and(sig_times>=ch_start, sig_times<ch_end))[0]              
+            ch_label_time = label_time[:,ch_indices].copy()
+            ch_label = ch_label_time[1,:]
+            ch_sig = ch_label_time[0,:]           
+            ch_size[cc] = ch_sig.size # the number of assemblies occuring within each chunk of time            
+            if ch_sig.size>1:
+                for i in np.arange(ch_sig.size):
+                    size_current = sig_patterns[ch_indices[i]].sum()
+                    size_vec += [size_current]
+                size_vec += [np.nan]
+            
+        size_now = size_vec[:-1].copy()
+        size_next = size_vec[1:].copy()    
+        ipdb.set_trace()   
+        
+                              
+        return   
+
+       
     def calc_transitions(self):
-        """ calculate tehe transition matrix of in-time evolution of assemblies, where each assembly
+        """ calculate the transition matrix of in-time evolution of assemblies, where each assembly
         is considered as an state """
         
         nCores = self.get_ncores()
@@ -258,6 +295,7 @@ class AssemblyMethods(AssemblyInfo):
         count_mat = np.zeros((nCores,nCores))
         ch_size = np.zeros(nChunks)
         ch_size[:]=np.nan
+        SigSize_vec = []
         
         # now count the specif orders of assemblies (repetition time of all observed sequences)
         for cc in np.arange(nChunks):
@@ -266,12 +304,16 @@ class AssemblyMethods(AssemblyInfo):
             ch_label_time = label_time[:,np.where(np.logical_and(sig_times>=ch_start, sig_times<ch_end))[0]].copy()
             ch_label = ch_label_time[1,:]
             ch_sig = ch_label_time[0,:]           
-            ch_size[cc] = ch_sig.size # the number of assemblies occuring within each chunk of time            
-            if ch_sig.size>0:
-                for i in np.arange(ch_label.size-1):
-                    count_mat[ch_label[i],ch_label[i+1]] += 1  
+            ch_size[cc] = ch_sig.size # the number of assemblies occuring within each chunk of time       
+            ipdb.set_trace()
+#            if ch_sig.size>0:
+#                  SigSize_vec +=   
+                  
+#                for i in np.arange(ch_sig.size-1):
+#                    count_mat[ch_label[i],ch_label[i+1]] += 1  
                        
         return {'count_mat':count_mat,'ch_size':ch_size}    
+    
     
     
     def calc_assembly_seq3(self,nShuffles=5000):
@@ -575,7 +617,7 @@ class AssemblyMethods(AssemblyInfo):
     
     
     def calc_pattern_reliability(self):
-        """ calculate the average Edist-distance between the spatial pattern of eacg core assembly and each of its significant patterns"""  
+        """ calculate the average Edist-distance between the spatial pattern of each core assembly and each of its significant patterns"""  
         
         nCores= self.get_ncores()
         ed_cores_mats = [[]]*nCores
