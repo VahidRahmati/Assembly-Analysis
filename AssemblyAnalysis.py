@@ -65,9 +65,9 @@ def import_spike_trains(Dir_DataNames,Dir_SpikeTrains,movie_idx,nRows=13,nCols=1
 
 #%% Read assbly detection results and compute basic measures
 class AssemblyInfo(object):
-    
+
     def __init__(self, assemblies_data):
-        # assemblies_data: the output of cell-assembly detection method using SGC for one dataset
+        """ assemblies_data: the output of cell-assembly detection method using SGC for one dataset"""
         self.assemblies = assemblies_data['assemblies'] 
         self.activities = assemblies_data['assembly_pattern_detection']
         
@@ -151,8 +151,8 @@ class AssemblyInfo(object):
         
     
     def get_affinty_patterns_idx(self):
-        # the indices of sig frames which used to compute the affinity matrix
-        # (their spatial average gives the "priliminary" saptial pattern ...)
+        """ the indices of sig frames which used to compute the affinity matrix
+        (their spatial average gives the "priliminary" saptial pattern ...)"""
         return self.activities['assemblyIActivityPatterns'][0,0].squeeze() - 1 # note that the indices were imported from Matlab
     
                                                                  
