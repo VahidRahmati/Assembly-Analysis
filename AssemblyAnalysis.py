@@ -232,7 +232,7 @@ class AssemblyMethods(AssemblyInfo):
     
     
     def calc_transitions(self):
-        """ calculate tehe transition matrix of in-time evolution of assemblies: Each assembly
+        """ calculate tehe transition matrix of in-time evolution of assemblies, where each assembly
         is considered as an state """
         nCores = self.get_ncores()
         label_time = self.get_labeled_times().astype(int)
