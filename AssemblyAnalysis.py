@@ -40,10 +40,10 @@ def import_assembly(Dir_DataNames,Active_thr,movie_idx):
 
 
     
-def import_spike_trains(Dir_DataNames,Dir_SpikeTrains,movie_idx,nRows=13,nCols=17):
+def import_spike_trains(Dir_DataNames,Dir_SpikeTrains,movie_idx, nFrames_orig = 80000, nRows=13,nCols=17):
     
     Dir_current = os.getcwd() # pwd
-    ipdb.set_trace()
+    
 #    os.chdir(Dir_DataNames)
 #    from movie_names import names #import the names of the movies as "names" list variable from the movie_names.py
 #    os.chdir(Dir_current)
@@ -60,7 +60,7 @@ def import_spike_trains(Dir_DataNames,Dir_SpikeTrains,movie_idx,nRows=13,nCols=1
     drifts_mat = eTrain_file['Trains_rec']['drifts_mat'][0,0]
     nFrames_av = eTrain_file['Trains_rec']['nFramesWithoutDrifts'][0,0][0,0] # no. of avialable frames after excluding the animal movement periods
     
-    return {"nFrames_av":nFrames_av, 'drifts_mat':drifts_mat}    
+    return {"nFrames_av":nFrames_av, 'drifts_mat':drifts_mat, "nFrames_orig":nFrames_orig}    
 
 
 #%% Read assbly detection results and compute basic measures
@@ -178,11 +178,12 @@ class AssemblyMethods(AssemblyInfo):
     def __init__(self,assemblies_data, sptrains_data=None):
         super(AssemblyMethods,self).__init__(assemblies_data)
         self.nFrames_av = sptrains_data['nFrames_av']
+        self.nFrames_orig = sptrains_data['nFrames_orig'] 
         
         drifts_mat = sptrains_data['drifts_mat'] - 1 # indices were imported from Matlab
         drifts_mat = np.vstack((np.array([0,0]),drifts_mat)) if drifts_mat[0,0]!=0 else drifts_mat
         drifts_mat[-1,1] = self.nFrames_av if drifts_mat[-1,1] == self.nFrames_av-1 else drifts_mat[-1,1] 
-        drifts_mat = np.vstack((drifts_mat,np.array([self.nFrames_av,self.nFrames_av]))) if drifts_mat[-1,1]!=self.nFrames_av else drifts_mat
+        drifts_mat = np.vstack((drifts_mat,np.array([self.nFrames_orig,self.nFrames_orig]))) if drifts_mat[-1,1]!=self.nFrames_av else drifts_mat
         self.drifts_mat = drifts_mat 
         
         
@@ -223,7 +224,6 @@ class AssemblyMethods(AssemblyInfo):
         ch_size = np.zeros(nChunks)
         ch_size[:]=np.nan
         
-        sig_times2 = []
         # now count the specif orders of assemblies (repetition time of all observed sequences)
         for cc in np.arange(nChunks):
             ch_start = drifts_mat[cc,1]
@@ -231,14 +231,11 @@ class AssemblyMethods(AssemblyInfo):
             ch_label_time = label_time[:,np.where(np.logical_and(sig_times>=ch_start, sig_times<ch_end))[0]].copy()
             ch_label = ch_label_time[1,:]
             ch_sig = ch_label_time[0,:]           
-            ch_size[cc] = ch_sig.size # the number of assemblies occuring within each chunk of time
-            ipdb.set_trace()
+            ch_size[cc] = ch_sig.size # the number of assemblies occuring within each chunk of time            
             if ch_sig.size>0:
-                sig_times2 = np.hstack((sig_times2,ch_sig))
                 for i in np.arange(ch_label.size-1):
                     count_mat[ch_label[i],ch_label[i+1]] += 1  
-             
-        ipdb.set_trace()             
+                       
         return {'count_mat':count_mat,'ch_size':ch_size}    
     
     
@@ -255,15 +252,14 @@ class AssemblyMethods(AssemblyInfo):
         new_labels = []
         new_label = nCores+1
         z = 0
-        
         for hh in np.arange(nChunks):
-            print(ch_size[hh])
+#            ipdb.set_trace()
             if ch_size[hh]>1:
                temp = labels_all[np.arange(z, z+ch_size[hh]).astype(int)]
                new_labels = np.hstack((new_labels,temp,new_label))
             z += ch_size[hh]
         
-#        ipdb.set_trace()
+        ipdb.set_trace()
 #        labels_x  =
         count_mat_sh = np.zeros((nCores,nCores,nShuffles))
         PrAB_sh = np.zeros_like(count_mat_sh)
