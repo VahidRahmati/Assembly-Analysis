@@ -12,16 +12,53 @@ import numpy as np
 import scipy.io as sio
 import matplotlib.pyplot as plt
 import AssemblyAnalysis as aa
-
+import CondComparison as cc
 
 # %% parameters
-movie_idx = 1  # index of the data set (currently not applicapable)
-Active_thr = 3 # importing data with activation threshold of: CoActive_thr*STD(mean[Ft])
-Dir_DataNames = 'D:\Dropbox\Project\PAPER\JNS 2018\Video_2018 - vr\Main analysis\Template Matching' 
-Dir_SpikeTrains = 'D:\Data\\2nd Project\Data\Data_arranged\All\\' # dir to reconstructed event times
+params = dict()
+movie_idx = 0  # index of the data set (currently not applicapable)
+params['Active_thr'] = 3 # importing data with activation threshold of: CoActive_thr*STD(mean[Ft])
+params['Dir_DataNames'] = 'D:\Dropbox\Project\PAPER\JNS 2018\Video_2018 - vr\Main analysis\Template Matching' 
+params['Dir_Assemblies'] = 'D:\Data\\2nd Project\\Data\\Data_arranged\\All\\Assemblies\\'
+params['Dir_SpikeTrains'] = 'D:\Data\\2nd Project\\Data\\Data_arranged\\All\\' # dir to reconstructed event times
+
+params['ctrlg_idx'] = [1,3,5,7,11]; # the name indices of Ctrol_g data 
+params['ctrld_idx'] = [9,13,15,17,19,21]; # the name indices of Ctrol_d data
+
+#
+#spdata = aa.import_spike_trains(params['Dir_DataNames'], params['Dir_SpikeTrains'], movie_idx)
+#asmb_data = aa.import_assembly(params['Dir_DataNames'], params['Dir_Assemblies'], params['Active_thr'], movie_idx)
+#aa.AssemblyMethods(asmb_data,spdata).calc_transitions()
 
 
-spdata = aa.import_spike_trains(Dir_DataNames, Dir_SpikeTrains, movie_idx, nFrames_orig = 80000)
-asmb_data = aa.import_assembly(Dir_DataNames, Active_thr, movie_idx)
-aa.AssemblyMethods(asmb_data,spdata).calc_transitions()
+#%% compare assembly results of Ctrol vs. Treatment
+params['method_name'] = 'get_ncores'
+cc.CondComparison(params)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

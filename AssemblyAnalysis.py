@@ -17,54 +17,55 @@ import os
 import numpy as np
 import scipy.io as sio
 import matplotlib.pyplot as plt
+from scipy import stats
+import sys
 
-
-def import_assembly(Dir_DataNames,Active_thr,movie_idx):
+def import_assembly(Dir_DataNames, Dir_Assemblies, Active_thr,movie_idx):
     """ Import the data of detected neural assmblies from MAT files""" 
-    
-    Dir_current = os.getcwd() # pwd
-    
-    assemblies_data = sio.loadmat(Dir_current+'\ctrl_130618_SGC-ASSEMBLIES.mat')
-    sigFrame_times = sio.loadmat(Dir_current+'\ctrl_130618_ACTIVITY-RASTER.mat')['activity_raster_peaks']
-    
-    assemblies_data['sigFrame_times'] = sigFrame_times
 
+    # import assembly data based on mouse ID
+    sys.path.insert(0, Dir_DataNames)
+    from movie_names import names    
+    name_current = names[movie_idx][11:] # the name of the current movie to analyze   
+    dir_assmblies = Dir_Assemblies+ 'thr' + str(Active_thr) + '\\' 
+    assemblies_data = sio.loadmat(dir_assmblies+ name_current + '_SGC-ASSEMBLIES.mat')
+    sigFrame_times = sio.loadmat(dir_assmblies+ name_current +'_ACTIVITY-RASTER.mat')['activity_raster_peaks']
+    asmb_keys = assemblies_data.keys()    
+    assemblies_data['sigFrame_times'] = sigFrame_times  
     
-#    os.chdir(Dir_DataNames)
-#    #sys.path.append('D:\Dropbox\Project\PAPER\JNS 2018\Video_2018 - vr\Main analysis\Template Matching')
-#    from movie_names import names #import the names of the movies as "names" list variable from the movie_names.py
-#    os.chdir(Dir_current)
-#    
-#    name_current = names[movie_idx][11:] # the name of the current movie to analyze
-#    
-#    dir_assmblies = 'D:\Data\\2nd Project\\Data\\Data_arranged\\All\\Assemblies\\thr' + str(Active_thr) + '\\' 
-#    assemblies_data = sio.loadmat(dir_assmblies+ name_current + '_SGC-ASSEMBLIES.mat')
-#    ipdb.set_trace()
-#    asmb_keys = assemblies_data.keys()    
+    
+    # import sample data
+#    Dir_current = os.getcwd() # pwd   
+#    assemblies_data = sio.loadmat(Dir_current+'\ctrl_130618_SGC-ASSEMBLIES.mat')
+#    sigFrame_times = sio.loadmat(Dir_current+'\ctrl_130618_ACTIVITY-RASTER.mat')['activity_raster_peaks']
+#    assemblies_data['sigFrame_times'] = sigFrame_times
       
     return assemblies_data
 
 
     
-def import_spike_trains(Dir_DataNames,Dir_SpikeTrains,movie_idx, nFrames_orig = 80000, nRows=13,nCols=17):
+def import_spike_trains(Dir_DataNames,Dir_SpikeTrains,movie_idx, nRows=13,nCols=17):
     """ Import the corresponding, reconstructed event trains and meta-data of each movie from MAT files"""
     
-    Dir_current = os.getcwd() # pwd
-    eTrain_file = sio.loadmat(Dir_current+'\Trains_rec_ctrl_130618.mat')
-    a = eTrain_file['Trains_rec']['raw'][0,0]
-    b = eTrain_file['Trains_rec']['raw'][0,0].reshape(nRows*nCols,80000,order='F')
-    
+    # import event-train data based on mouse ID
+    sys.path.insert(0, Dir_DataNames)
+    from movie_names import names 
+    name_current = names[movie_idx] # the name of the current movie to analyze
+    eTrain_file = sio.loadmat(Dir_SpikeTrains+name_current+'.mat')
+    eTrain_keys = eTrain_file.keys()
     drifts_mat = eTrain_file['Trains_rec']['drifts_mat'][0,0]
     nFrames_av = eTrain_file['Trains_rec']['nFramesWithoutDrifts'][0,0][0,0] # no. of avialable frames after excluding the animal movement periods
+    nFrames_orig = eTrain_file['Trains_rec']['raw'][0,0].shape[2]
+  
+    # import sample data
+#    Dir_current = os.getcwd() # pwd
+#    eTrain_file = sio.loadmat(Dir_current+'\Trains_rec_ctrl_130618.mat')
+#    a = eTrain_file['Trains_rec']['raw'][0,0]
+#    b = eTrain_file['Trains_rec']['raw'][0,0].reshape(nRows*nCols,80000,order='F')
+#    drifts_mat = eTrain_file['Trains_rec']['drifts_mat'][0,0]
+#    nFrames_av = eTrain_file['Trains_rec']['nFramesWithoutDrifts'][0,0][0,0] # no. of avialable frames after excluding the animal movement periods
+#    nFrames_orig = eTrain_file['Trains_rec']['raw'][0,0].shape[2]
     
-#    os.chdir(Dir_DataNames)
-#    from movie_names import names #import the names of the movies as "names" list variable from the movie_names.py
-#    os.chdir(Dir_current)
-#    
-#    name_current = names[movie_idx] # the name of the current movie to analyze
-#    eTrain_file = sio.loadmat(Dir_SpikeTrains+name_current+'.mat')
-#    eTrain_keys = eTrain_file.keys()
-        
     return {"nFrames_av":nFrames_av, 'drifts_mat':drifts_mat, "nFrames_orig":nFrames_orig}    
 
 
@@ -274,11 +275,19 @@ class AssemblyMethods(AssemblyInfo):
                     size_vec += [size_current]
                 size_vec += [np.nan]
             
-        size_now = size_vec[:-1].copy()
-        size_next = size_vec[1:].copy()    
-        ipdb.set_trace()   
+        size_now = np.array(size_vec[:-1])
+        size_next = np.array(size_vec[1:])
+         
+        NotNan_indices = np.where(np.logical_and(~np.isnan(size_now),~np.isnan(size_next)))[0]
+        ipdb.set_trace() 
         
-        return   
+        size_now = size_now[NotNan_indices]
+        size_next = size_next[NotNan_indices]
+        
+        # compute the correlation (Spearman Correlation)
+        corr = stats.spearmanr(size_now,size_next)
+        
+        return  {'corr':corr[0],'pval':corr[1]} 
 
 
     def calc_transitions(self, order=1):
@@ -313,7 +322,7 @@ class AssemblyMethods(AssemblyInfo):
     
     
     
-    def calc_assembly_seq3(self,nShuffles=5000):
+    def calc_assembly_seq3(self,nShuffles=5000,order=1):
         """ Compute the pvalues of assembly in-time transitions, based on transition-divergence.
         Third shuffling method: The drift timings are considered as new labels and are 
         shuffled together with assembly labels."""
@@ -321,20 +330,29 @@ class AssemblyMethods(AssemblyInfo):
         nCores = self.get_ncores()
         label_time = self.get_labeled_times().astype(int)
         sig_all = label_time[0,:]
-        trans = self.calc_transitions()
+        trans = self.calc_transitions(order)
         count_mat_emp = trans['count_mat']
         ch_size = trans['ch_size']
         nChunks = ch_size.size
+        times_all = label_time[0,:].copy()
         labels_all = label_time[1,:].copy()
         new_labels = []
-        new_label = nCores+1
+        new_times = []
+        new_label = nCores # note labels start from zero
         z = 0
         for hh in np.arange(nChunks):
-#            ipdb.set_trace()
+            ipdb.set_trace()
             if ch_size[hh]>1:
-               temp = labels_all[np.arange(z, z+ch_size[hh]).astype(int)]
-               new_labels = np.hstack((new_labels,temp,new_label))
+               indices =  np.arange(z, z+ch_size[hh]).astype(int)
+               temp_labels = labels_all[indices]
+               new_labels = np.hstack((new_labels,temp_labels,new_label))
+               temp_times = times_all[indices]
+               new_time = temp_times[-1] + 5  
+               new_times = np.hstack((new_labels,temp_times,new_time))
+               
             z += ch_size[hh]
+        
+        new_labels = new_labels[:-1]
         
         ipdb.set_trace()
         count_mat_sh = np.zeros((nCores,nCores,nShuffles))
@@ -645,7 +663,9 @@ class AssemblyMethods(AssemblyInfo):
 #%% draft code    
     
     
-    
+#    os.chdir(Dir_DataNames)
+#    from movie_names import names #import the names of the movies as "names" list variable from the movie_names.py
+#    os.chdir(Dir_current)    
                      
 
 #    def calc_pattern_reliability(self):
