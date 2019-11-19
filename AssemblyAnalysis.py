@@ -281,7 +281,7 @@ class AssemblyMethods(AssemblyInfo):
         return   
 
 
-    def calc_transitions_general(self, order=2):
+    def calc_transitions(self, order=1):
         """ calculate the transition matrix of in-time evolution of assemblies, where each assembly
         is considered as an state """
         
@@ -310,36 +310,6 @@ class AssemblyMethods(AssemblyInfo):
                        
         return {'count_mat':count_mat,'ch_size':ch_size}    
     
-    
-       
-    def calc_transitions(self):
-        """ calculate the transition matrix of in-time evolution of assemblies, where each assembly
-        is considered as an state """
-        
-        nCores = self.get_ncores()
-        label_time = self.get_labeled_times().astype(int)
-        sig_times = label_time[0,].copy()
-        drifts_mat  = self.drifts_mat         
-        nDrifts = drifts_mat.shape[0]
-        nChunks = nDrifts - 1 # note that we have added virtual drifts to the first and end of recoding (see the importing code above)        
-        count_mat = np.zeros((nCores,nCores))
-        ch_size = np.zeros(nChunks)
-        ch_size[:]=np.nan
-        
-        # now count the specif orders of assemblies (repetition time of all observed sequences)
-        for cc in np.arange(nChunks):
-            ch_start = drifts_mat[cc,1]
-            ch_end = drifts_mat[cc+1,0]              
-            ch_label_time = label_time[:,np.where(np.logical_and(sig_times>=ch_start, sig_times<ch_end))[0]].copy()
-            ch_label = ch_label_time[1,:]
-            ch_sig = ch_label_time[0,:]           
-            ch_size[cc] = ch_sig.size # the number of assemblies occuring within each chunk of time       
-#            ipdb.set_trace()
-            if ch_sig.size>0:
-                for i in np.arange(ch_sig.size-1):
-                    count_mat[ch_label[i],ch_label[i+1]] += 1  
-                       
-        return {'count_mat':count_mat,'ch_size':ch_size}    
     
     
     
@@ -372,77 +342,17 @@ class AssemblyMethods(AssemblyInfo):
         sum_mat = np.zeros_like(count_mat_emp)
         PrA_sh = np.zeros((nCores,nShuffles))
         
-        
     
-    def calc_assembly_seq1(self,nShuffles=5000):
-        """ Compute the pvalues of assembly in-time transitions, based on transition-divergence.
-        First shuffling method: The drift periods are exlucded, and shuffling is performed 
-        wihout considering any chunk (caveat: this will lead to a bigger number of transisitons."""
+    
+    def calc_assembly_seq1(self,nShuffles=5000,order=1):
+        """ Compute the pvalues of assembly in-time transitions, based on transition-matrix.
+        Second shuffling method: only the aseembly labeles are shuffled across chunks, and 
+        drift periods remain fixed."""
         
         nCores = self.get_ncores()
         label_time = self.get_labeled_times().astype(int)
         sig_all = label_time[0,:]
-        trans = self.calc_transitions()
-        count_mat_emp = trans['count_mat']
-        ch_size = trans['ch_size']
-        nChunks = ch_size.size
-        count_mat_sh = np.zeros((nCores,nCores,nShuffles))
-        PrAB_sh = np.zeros_like(count_mat_sh)
-        sum_mat = np.zeros_like(count_mat_emp)
-        PrA_sh = np.zeros((nShuffles,nCores))
-        
-        # for computing the count matrix in shuffled data, we don't care about the shuffles
-        for s in np.arange(nShuffles):
-            
-            label_all = label_time[1,:].copy()
-            np.random.shuffle(label_all)
-            m = 0
-            
-            for cc in np.arange(nChunks):
-                size_current = ch_size[cc]
-#                ipdb.set_trace()
-                if size_current>0:
-                    ch_label = label_all[np.arange(m,m+size_current).astype(int)]
-                    m += size_current
-                    for i in np.arange(ch_label.size-1):
-                        count_mat_sh[ch_label[i],ch_label[i+1],s] += 1 
-            
-            sum_mat += count_mat_sh[:,:,s]>=count_mat_emp
-            rows_sum_sh = np.sum(count_mat_sh[:,:,s],axis=1).reshape(nCores,1) 
-            temp1 = count_mat_sh[:,:,s]/rows_sum_sh
-            temp1[np.isnan(temp1)]=0
-            PrAB_sh[:,:,s] = temp1
-            nObserved_patterns_all = count_mat_sh[:,:,s].sum()
-            temp2 = rows_sum_sh/nObserved_patterns_all
-            temp2[np.isnan(temp2)]=0
-            PrA_sh[s,:] = np.squeeze(temp2)
-         
-        # now compute pvalues
-        pvals = sum_mat/nShuffles
-        
-        # additionally, also convert the count_mat to a Pr transition mat
-        rows_sum = np.sum(count_mat_emp,axis=1).reshape(nCores,1) 
-        PrAB_emp = count_mat_emp/rows_sum
-        PrAB_emp[np.isnan(PrAB_emp)]=0
-        
-        # also compute the probabilty of observating each node (i.e. assembly: A1,A2,A3); i.e. P(s_t=A1), P(s_t=A2),P(s_t=A3), ...
-        nObserved_patterns_all = count_mat_emp.sum()
-        PrA_emp = rows_sum/nObserved_patterns_all
-        PrA_emp[np.isnan(PrA_emp)] = 0
-        PrA_emp = PrA_emp.reshape(1,nCores)
-        
-        return {'pvals':pvals,'count_mat':count_mat_emp,'PrAB_sh':PrAB_sh,'PrAB_emp':PrAB_emp, 'PrA_emp':PrA_emp, 'PrA_sh':PrA_sh}
-    
-    
-    def calc_assembly_seq1_general(self,nShuffles=5000,order=2):
-        """ Compute the pvalues of assembly in-time transitions, based on transition-divergence.
-        First shuffling method: The drift periods are exlucded, and shuffling is performed 
-        wihout considering any chunk (caveat: this will lead to a bigger number of transisitons."""
-        
-        nCores = self.get_ncores()
-        label_time = self.get_labeled_times().astype(int)
-        sig_all = label_time[0,:]
-        trans = self.calc_transitions_general(order=2)
+        trans = self.calc_transitions(order)
         count_mat_emp = trans['count_mat']
         ch_size = trans['ch_size']
         nChunks = ch_size.size
@@ -494,62 +404,16 @@ class AssemblyMethods(AssemblyInfo):
         return {'pvals':pvals,'count_mat':count_mat_emp,'PrAB_sh':PrAB_sh,'PrAB_emp':PrAB_emp, 'PrA_emp':PrA_emp, 'PrA_sh':PrA_sh}
     
     
-    
-    def calc_assembly_seq2(self,nShuffles=5000):
-        """ Compute the pvalues of assembly in-time transitions, based on transition-matrix.
-        Second shuffling method: only the aseembly labeles are shuffled across chunks, and 
-        drift periods remain fixed."""
+  
+    def calc_assembly_seq2(self,nShuffles=5000, order=1):
+        """ Compute the pvalues of assembly in-time transitions, based on transition-divergence.
+        First shuffling method: The drift periods are exlucded, and shuffling is performed 
+        wihout considering any chunk (caveat: this will lead to a bigger number of transisitons."""
         
         nCores = self.get_ncores()
         label_time = self.get_labeled_times().astype(int)
         sig_all = label_time[0,:]
-        trans = self.calc_transitions()
-        count_mat_emp = trans['count_mat']
-        count_mat_sh = np.zeros((nCores,nCores,nShuffles))
-        PrAB_sh = np.zeros_like(count_mat_sh)
-        PrA_sh = np.zeros((nShuffles,nCores))
-        sum_mat = np.zeros_like(count_mat_emp)
-        
-        # for computing the count matrix in shuffled data, we don't care about the shuffles
-        for s in np.arange(nShuffles):
-            label_all = label_time[1,:].copy()
-            np.random.shuffle(label_all)
-            for i in np.arange(sig_all.size-1):
-                count_mat_sh[label_all[i],label_all[i+1],s] += 1              
-            sum_mat += count_mat_sh[:,:,s]>=count_mat_emp
-            rows_sum_sh = np.sum(count_mat_sh[:,:,s],axis=1).reshape(nCores,1) 
-            temp1 = count_mat_sh[:,:,s]/rows_sum_sh
-            temp1[np.isnan(temp1)]=0
-            PrAB_sh[:,:,s] = temp1
-            nObserved_patterns_all = count_mat_sh[:,:,s].sum()
-            temp2 = rows_sum_sh/nObserved_patterns_all
-            temp2[np.isnan(temp2)]=0
-            PrA_sh[s,:] = np.squeeze(temp2)
-            
-        # now compute pvalues
-        pvals = sum_mat/nShuffles
-        
-        # additionally, also convert the count_mat to a Pr transition mat
-        rows_sum = np.sum(count_mat_emp,axis=1).reshape(nCores,1) 
-        PrAB_emp = count_mat_emp/rows_sum
-        
-        # also compute the probabilty of observating each node (i.e. assembly: A1,A2,A3); i.e. P(s_t=A1), P(s_t=A2),P(s_t=A3), ...
-        nObserved_patterns_all = count_mat_emp.sum()
-        PrA_emp = rows_sum/nObserved_patterns_all
-        PrA_emp = PrA_emp.reshape(1,nCores)    
-        
-        return {'pvals':pvals,'count_mat':count_mat_emp,'PrAB_sh':PrAB_sh,'PrAB_emp':PrAB_emp, 'PrA_emp':PrA_emp, 'PrA_sh':PrA_sh}
-    
-    
-    def calc_assembly_seq2_general(self,nShuffles=5000, order=2):
-        """ Compute the pvalues of assembly in-time transitions, based on transition-matrix.
-        Second shuffling method: only the aseembly labeles are shuffled across chunks, and 
-        drift periods remain fixed."""
-        
-        nCores = self.get_ncores()
-        label_time = self.get_labeled_times().astype(int)
-        sig_all = label_time[0,:]
-        trans = self.calc_transitions_general()
+        trans = self.calc_transitions(order)
         count_mat_emp = trans['count_mat']
         count_mat_sh = np.zeros((nCores,nCores,nShuffles))
         PrAB_sh = np.zeros_like(count_mat_sh)
@@ -588,12 +452,12 @@ class AssemblyMethods(AssemblyInfo):
     
     
     
-    def calc_KL_transitions(self,nShuffles=5000):
+    def calc_KL_transitions(self,nShuffles=5000,order=1):
         """ Use KL-divergence to assess whether the state stransitions of each  node (each node separately; a node = a neural assembly)  
         is temporally more structured than a purely random process (i.e. process under uniform assumption), based on KL-divergence"""
         
         nCores = self.get_ncores()
-        seq_info = self.calc_assembly_seq1(nShuffles)
+        seq_info = self.calc_assembly_seq2(nShuffles,order)
         PrAB_emp = seq_info['PrAB_emp']
         PrAB_sh = seq_info['PrAB_sh']
         Pr_uni = np.ones_like(PrAB_emp)/nCores # the transition Pr matrix under uniform dist assumption
@@ -616,44 +480,16 @@ class AssemblyMethods(AssemblyInfo):
         pvals_KL = sum_mat/nShuffles   
         
         return {'KL_emp':KL_emp, "pvals_KL":pvals_KL}
-            
     
-    def calc_MI_transitions(self,nShuffles=5000):    
+    
+    
+    def calc_MI_transitions(self,nShuffles=5000,order=1):    
         """ Use Mutual Information to asssess whether the whole observed state transitions of all neural nodes (together) is temporally  
         more structured than that of shuffled data. MI tells us, how much knowing the current state of the process witll tell us about
         the future (next state), or vice versa. """
         
         nCores = self.get_ncores()
-        seq_info = self.calc_assembly_seq1(nShuffles)
-        PrAB_emp = seq_info['PrAB_emp']
-        PrA_emp = seq_info['PrA_emp'] 
-        PrAB_sh = seq_info['PrAB_sh']  
-        PrA_sh = seq_info['PrA_sh'] 
-        MI_emp = 0
-        sum_mat = 0
-        
-        # (Empirical) compute the MI between current and next (future) state of whole process (i.e. all transitions of all nodes) 
-        for i in np.arange(nCores):
-            MI_emp += PrA_emp[0,i]*np.nansum(PrAB_emp[i,:]*np.log2(PrAB_emp[i,:]/PrA_emp))
-                
-        # (Suffled) compute the MI between current and next (future) state of whole process (i.e. all transitions of all nodes)   
-        for s in np.arange(nShuffles):
-            MI_sh = 0
-            for i  in np.arange(nCores):
-                MI_sh += PrA_sh[s,i]*np.nansum(PrAB_sh[i,:,s]*np.log2(PrAB_sh[i,:,s]/PrA_sh[s,:]))           
-            sum_mat += MI_sh>=MI_emp       
-        pval_MI = sum_mat/nShuffles        
-        
-        return MI_emp, pval_MI
-    
-    
-    def calc_MI_transitions_general(self,nShuffles=5000,order=2):    
-        """ Use Mutual Information to asssess whether the whole observed state transitions of all neural nodes (together) is temporally  
-        more structured than that of shuffled data. MI tells us, how much knowing the current state of the process witll tell us about
-        the future (next state), or vice versa. """
-        
-        nCores = self.get_ncores()
-        seq_info = self.calc_assembly_seq2_general(nShuffles,order=order)
+        seq_info = self.calc_assembly_seq1(nShuffles,order)
         PrAB_emp = seq_info['PrAB_emp']
         PrA_emp = seq_info['PrA_emp'] 
         PrAB_sh = seq_info['PrAB_sh']  
@@ -675,6 +511,7 @@ class AssemblyMethods(AssemblyInfo):
         
         return MI_emp, pval_MI        
         
+    
     def calc_irregularity(self):
         """ calculate the in-time irregularity of all assembly significant patterns, regardless of to whatever assembly they belong to."""
         
