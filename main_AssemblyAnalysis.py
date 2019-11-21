@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import AssemblyAnalysis as aa
 import CondComparison as cc
 
+
 # %% parameters
 params = dict()
 movie_idx = 0  # index of the data set (currently not applicapable)
@@ -22,8 +23,8 @@ params['Dir_DataNames'] = 'D:\Dropbox\Project\PAPER\JNS 2018\Video_2018 - vr\Mai
 params['Dir_Assemblies'] = 'D:\Data\\2nd Project\\Data\\Data_arranged\\All\\Assemblies\\'
 params['Dir_SpikeTrains'] = 'D:\Data\\2nd Project\\Data\\Data_arranged\\All\\' # dir to reconstructed event times
 
-params['ctrlg_idx'] = [1,3,5,7,11]; # the name indices of Ctrol_g data 
-params['ctrld_idx'] = [9,13,15,17,19,21]; # the name indices of Ctrol_d data
+params['ctrlg_idx'] = [0,2,4,8,10]; # the name indices of Ctrol_g data 
+params['ctrld_idx'] = [8,12,14,16,18,20]; # the name indices of Ctrol_d data
 
 #
 #spdata = aa.import_spike_trains(params['Dir_DataNames'], params['Dir_SpikeTrains'], movie_idx)
@@ -31,9 +32,16 @@ params['ctrld_idx'] = [9,13,15,17,19,21]; # the name indices of Ctrol_d data
 #aa.AssemblyMethods(asmb_data,spdata).calc_transitions()
 
 
+#%% import data, as instances of assembly class
+instances = cc.make_instances(params)
+
+
 #%% compare assembly results of Ctrol vs. Treatment
-params['method_name'] = 'get_ncores'
-cc.CondComparison(params)
+
+#params['method_name'] = 'get_ncores'
+cc.CtrlTreat(instances,params).barplot('get_ncores','mean')
+
+#cc.CondComparison(params)
 
 
 

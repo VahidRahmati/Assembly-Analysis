@@ -221,6 +221,7 @@ class AssemblyMethods(AssemblyInfo):
         # extract the the timing or occurrence of each assembly, during reociding (based on the peak significant frames)  
         sigTimes = assemblies_data['sigFrame_times'].transpose() - 1 # indices were imported from Matlab
         sigTimes_corr = sigTimes.copy() 
+        ipdb.set_trace()
         mm = 0
         for i in np.arange(drifts_mat.shape[0]):
             sigTimes_corr[drifts_mat[i,0]<sigTimes_corr] += drifts_mat[i,1] - drifts_mat[i,0] + mm
@@ -544,13 +545,19 @@ class AssemblyMethods(AssemblyInfo):
             ch_start = drifts_mat[cc,1]
             ch_end = drifts_mat[cc+1,0]
             ch_frames = sig_times[np.where(np.logical_and(sig_times>ch_start, sig_times<ch_end))]
-            isi_vec = np.diff(ch_frames)
+            isi_vec = np.diff(ch_frames.tolist())
             isi_all += isi_vec.tolist()
+#            ipdb.set_trace()
+           
             
             if isi_vec.size>=2:
-               for i in np.arange(isi_vec.size-1):                   
+               for i in np.arange(isi_vec.size-1): 
+#                   ipdb.set_trace()
                    sum_CV2 += 2*np.absolute(isi_vec[i]-isi_vec[i+1])/(isi_vec[i]+isi_vec[i+1])
-               n_isi += isi_vec.size               
+               n_isi += isi_vec.size
+           
+
+               
         CV2 = sum_CV2/(n_isi-1)
         isi_all = np.array(isi_all)
         CV = np.nanstd(isi_all)/np.nanmean(isi_all)        
