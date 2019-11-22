@@ -127,7 +127,7 @@ class AssemblyInfo(object):
         return self.get_sig_patterns_all().size 
 
         
-    def get_nunits(self):
+    def get_nCells(self):
         """ get the number of recorded cells """ 
         
         return self.get_sig_patterns_all()[0].size
@@ -221,11 +221,12 @@ class AssemblyMethods(AssemblyInfo):
         # extract the the timing or occurrence of each assembly, during reociding (based on the peak significant frames)  
         sigTimes = assemblies_data['sigFrame_times'].transpose() - 1 # indices were imported from Matlab
         sigTimes_corr = sigTimes.copy() 
-        ipdb.set_trace()
+        sigTimes_corr = np.double(sigTimes_corr)
         mm = 0
         for i in np.arange(drifts_mat.shape[0]):
-            sigTimes_corr[drifts_mat[i,0]<sigTimes_corr] += drifts_mat[i,1] - drifts_mat[i,0] + mm
+            sigTimes_corr[drifts_mat[i,0]<sigTimes_corr] += drifts_mat[i,1] - drifts_mat[i,0] + mm            
             mm = 1
+            
         self.sigTimes = sigTimes_corr    
             
 
@@ -476,7 +477,7 @@ class AssemblyMethods(AssemblyInfo):
         is temporally more structured than a purely random process (i.e. process under uniform assumption), based on KL-divergence"""
         
         nCores = self.get_ncores()
-        seq_info = self.calc_assembly_seq2(nShuffles,order)
+        seq_info = self.calc_assembly_seq1(nShuffles,order)
         PrAB_emp = seq_info['PrAB_emp']
         PrAB_sh = seq_info['PrAB_sh']
         Pr_uni = np.ones_like(PrAB_emp)/nCores # the transition Pr matrix under uniform dist assumption
@@ -545,10 +546,10 @@ class AssemblyMethods(AssemblyInfo):
             ch_start = drifts_mat[cc,1]
             ch_end = drifts_mat[cc+1,0]
             ch_frames = sig_times[np.where(np.logical_and(sig_times>ch_start, sig_times<ch_end))]
-            isi_vec = np.diff(ch_frames.tolist())
+            
+            isi_vec = np.diff(ch_frames)
             isi_all += isi_vec.tolist()
-#            ipdb.set_trace()
-           
+         
             
             if isi_vec.size>=2:
                for i in np.arange(isi_vec.size-1): 

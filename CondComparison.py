@@ -152,12 +152,15 @@ class CtrlTreat(object):
 #            y_max = y_max
         
         # compute the desired method_name and statistic
+#        ipdb.set_trace()
         result = self.cmpt_stat(method_name,stat_name,out_idx)
        
         # check whether there is a signigicant difference between Ctrl vs. Treatment
-        issig_d, pval_d = stest.paired(result['ctrld'],result['diaz'], alpha_sig)
-        issig_g, pval_g = stest.paired(result['ctrlg'],result['gabaz'], alpha_sig)
+        issig_d, pval_d, test_type_d = stest.paired(result['ctrld'],result['diaz'], alpha_sig)
+        issig_g, pval_g, test_type_g = stest.paired(result['ctrlg'],result['gabaz'], alpha_sig)
         
+        print('Diaz: pval=%.4f, test=%s' % (pval_d, test_type_d))
+        print('Gabaz: pval=%.4f, test=%s' % (pval_g, test_type_g))
         
         
         # take the results to panda format
@@ -183,15 +186,21 @@ class CtrlTreat(object):
         
         y, h, color = max_val, max_val/30, 'k'
         
+        
+#        plt.text(0.5*(x3+x4), y+h, s='n.s.', ha='center',
+#         va='bottom', size=15, color=color)
+        
         # for Ctrld vs. Diaz
         plt.plot([x1, x1, x2, x2], [y, y+h, y+h, y], lw=2, color=color)
-        plt.text(0.5*(x1+x2), y+h, s='*', ha='center',
-                 va='center', size=30, color=color)
+        svs = ['*','center',30] if issig_d==1 else ['n.s.', 'bottom',15] 
+        plt.text(0.5*(x1+x2), y+h, s=svs[0], ha='center',
+                 va=svs[1], size=svs[2], color=color)
         
         # for Ctrlg vs. Gabaz
         plt.plot([x3, x3, x4, x4], [y, y+h, y+h, y], lw=2, color=color)
-        plt.text(0.5*(x3+x4), y+h, s='*', ha='center',
-                 va='center', size=30, color=color)
+        svs = ['*','center',30] if issig_g==1 else ['n.s.', 'bottom', 15]
+        plt.text(0.5*(x3+x4), y+h, s=svs[0], ha='center',
+                 va=svs[1], size=svs[2], color=color)
         
 #        ax_sw.axes.set_ylim(0, pd_stat[stat_name].max()+30)
         plt.ylabel('XXX [XXX]')
@@ -205,7 +214,10 @@ class CtrlTreat(object):
 #        plt.ylim((0,12))
         plt.show()
         
+    def plot_irregularity(self,measure = 'CV', p_type='box'):
         
+        ipdb.set_trace()
+        result = self.cmpt_stat('calc_irregularity','mean',out_idx='CV')
 
         
         

@@ -17,7 +17,7 @@ import CondComparison as cc
 
 # %% parameters
 params = dict()
-movie_idx = 0  # index of the data set (currently not applicapable)
+movie_idx = 1  # index of the data set (currently not applicapable)
 params['Active_thr'] = 3 # importing data with activation threshold of: CoActive_thr*STD(mean[Ft])
 params['Dir_DataNames'] = 'D:\Dropbox\Project\PAPER\JNS 2018\Video_2018 - vr\Main analysis\Template Matching' 
 params['Dir_Assemblies'] = 'D:\Data\\2nd Project\\Data\\Data_arranged\\All\\Assemblies\\'
@@ -39,7 +39,7 @@ instances = cc.make_instances(params)
 #%% compare assembly results of Ctrol vs. Treatment
 
 #params['method_name'] = 'get_ncores'
-cc.CtrlTreat(instances,params).barplot('get_ncores','mean')
+cc.CtrlTreat(instances,params).plot_bar('get_ncores','mean')
 
 #cc.CondComparison(params)
 

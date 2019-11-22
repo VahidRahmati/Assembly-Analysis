@@ -17,14 +17,15 @@ def paired(pop1,pop2,alpha_sig):
     # perform a paired two-tailed test
     if p_normal>alpha_sig: # when difference is normal
         _,p_paired = stats.ttest_rel(pop1,pop2)
-        
+        test_type = 'paired two-tailed ttest'
         
     elif p_normal<alpha_sig: # ... is Not normal
-        _,p_paired = stats.wilcoxon(pop1.squeeze(),pop2.squeeze())
+        _,p_paired = stats.wilcoxon(pop1.squeeze(),pop2.squeeze(),correction=True)
+        test_type = 'paired two-tailed Wilcoxon signed rank test'
         
     issig = int(p_paired<alpha_sig)
     
-    return issig, p_paired
+    return issig, p_paired, test_type
     
         
         
