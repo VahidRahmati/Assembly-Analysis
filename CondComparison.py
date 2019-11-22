@@ -131,8 +131,8 @@ class CtrlTreat(object):
         
     
     
-    def cmpt_stat(self,method_name,stat_name,out_idx=None):
-       out =  self.master_loop(method_name,out_idx)
+    def cmpt_stat(self,out,stat_name='mean'):
+#       out =  self.master_loop(method_name,out_idx)
        
 #       ipdb.set_trace()
        stat_dict = {}
@@ -146,15 +146,9 @@ class CtrlTreat(object):
        return stat_dict
        
         
-    def plot_bar(self,method_name,stat_name, out_idx = None, alpha_sig = 0.05):
+#    def plot_bar(self,result, plot_type='box', alpha_sig = 0.05):
+    def plot_bar(self,result, plot_type='box', alpha_sig = 0.05,title = 'measure', ylabel = 'measures', ylim = 0 ):  
         
-#        if 'y_max' in plot_kwarg:
-#            y_max = y_max
-        
-        # compute the desired method_name and statistic
-#        ipdb.set_trace()
-        result = self.cmpt_stat(method_name,stat_name,out_idx)
-       
         # check whether there is a signigicant difference between Ctrl vs. Treatment
         issig_d, pval_d, test_type_d = stest.paired(result['ctrld'],result['diaz'], alpha_sig)
         issig_g, pval_g, test_type_g = stest.paired(result['ctrlg'],result['gabaz'], alpha_sig)
@@ -164,31 +158,26 @@ class CtrlTreat(object):
         
         
         # take the results to panda format
-        pd_stat = make_panda(result,stat_name)
-        
+        pd_stat = make_panda(result,'measure')
         
         
         clrs = ['Skyblue', 'Red', 'SkyBlue', 'Red']
 
         # box plot
-#        plt.sca(axarr[0, 3])
-        sns.boxplot(data=pd_stat,  x="Condition", y= stat_name,
+        sns.boxplot(data=pd_stat,  x="Condition", y= 'measure',
                     palette=clrs, boxprops={'facecolor': 'None', 'linewidth': 2})
         
         # Swarm plot
         ax_sw = sns.swarmplot(data=pd_stat,  x="Condition",
-                              y=stat_name, size=10, zorder=0, dodge=True)
+                              y='measure', size=10, zorder=0, dodge=True)
         
         # Add statistical annotations
         x1, x2, x3, x4 = 0, 1, 2, 3
-        max_val = pd_stat[stat_name].max() 
+        max_val = pd_stat['measure'].max() 
         max_val += max_val*10/100;
         
         y, h, color = max_val, max_val/30, 'k'
         
-        
-#        plt.text(0.5*(x3+x4), y+h, s='n.s.', ha='center',
-#         va='bottom', size=15, color=color)
         
         # for Ctrld vs. Diaz
         plt.plot([x1, x1, x2, x2], [y, y+h, y+h, y], lw=2, color=color)
@@ -203,25 +192,73 @@ class CtrlTreat(object):
                  va=svs[1], size=svs[2], color=color)
         
 #        ax_sw.axes.set_ylim(0, pd_stat[stat_name].max()+30)
-        plt.ylabel('XXX [XXX]')
+        plt.ylabel(ylabel)
+        plt.title(title)
         plt.xticks(rotation=45)
         
         y_lim = plt.gca().get_ylim()
         y_max = 1.08*y_lim[1]  
         plt.ylim((y_lim[0],y_max))
+        
+        if ylim != 0:
+            plt.ylim(ylim)
+            
         ipdb.set_trace()
         
 #        plt.ylim((0,12))
         plt.show()
         
-    def plot_irregularity(self,measure = 'CV', p_type='box'):
         
-        ipdb.set_trace()
-        result = self.cmpt_stat('calc_irregularity','mean',out_idx='CV')
-
+    def plot_CV2(self, keyarg_compt=None,keyarg_plot=None,**keyargs):    
+        
+        keyarg_compt = {} if keyarg_compt is None else keyarg_compt
+        keyarg_plot = {} if keyarg_plot is None else keyarg_plot            
+        
+        # extract the desired measure for each mouse of each condition
+        out =  self.master_loop('calc_irregularity',0)
+        
+        # compute the deisred descriptive measure for each condition
+        result = self.cmpt_stat(out,**keyarg_compt)
+        
+        # plot the resutls
+        self.plot_bar(result, **keyarg_plot)
         
         
+    def plot_CV(self, keyarg_compt=None,keyarg_plot=None,**keyargs):    
         
+        keyarg_compt = {} if keyarg_compt is None else keyarg_compt
+        keyarg_plot = {} if keyarg_plot is None else keyarg_plot            
+        
+        
+        # add title and label to the keyarg_plot
+        keyarg_plot['title'] = 'Global irregularity'
+        keyarg_plot['ylabel'] = 'CV'
+        
+        
+        # extract the desired measure for each mouse of each condition
+        out =  self.master_loop('calc_irregularity',1)
+        
+        # compute the deisred descriptive measure for each condition
+        result = self.cmpt_stat(out,**keyarg_compt)
+        
+        # plot the resutls
+        self.plot_bar(result, **keyarg_plot) 
+        
+        
+#    def plot_nCores(self, )
+        
+#     def plot_CV2(self, keyarg_compt,keyarg_plot,**keyargs):    
+#        ipdb.set_trace()
+#        
+#        
+#        # extract the desired measure for each mouse of each condition
+#        out =  self.master_loop('calc_irregularity',0)
+#        
+#        # compute the deisred descriptive measure for each condition
+#        result = self.cmpt_stat(out,**keyarg)
+#        
+#        # plot the resutls
+#        self.plot_bar(result, keyarg)       
         
         
         
