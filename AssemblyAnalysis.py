@@ -191,13 +191,13 @@ class AssemblyInfo(object):
         return count_dist
 
     
-    def get_assemble_relfreq(self):
+    def get_assembly_relfreq(self):
         """ compute the fraction of significant patterns, for each assembly (relative frequency of assembly occurrence)""" 
         
         freq_vec = np.zeros(self.get_ncores())
         for c in np.arange(self.get_ncores()):
             freq_vec[c] = self.get_patterns_idx()[c].size/self.get_nsig_patterns_all()   
-        return freq_vec*100
+        return freq_vec
              
 
 #%%            
@@ -247,7 +247,7 @@ class AssemblyMethods(AssemblyInfo):
 
 
     def calc_size_corr(self):
-        """ calculate the XXX """
+        """ calculate the between the assembly size of the current and next one in time (all assemblies) """
         
         nCores = self.get_ncores()
         label_time = self.get_labeled_times().astype(int)
@@ -281,15 +281,15 @@ class AssemblyMethods(AssemblyInfo):
         size_next = np.array(size_vec[1:])
          
         NotNan_indices = np.where(np.logical_and(~np.isnan(size_now),~np.isnan(size_next)))[0]
-        ipdb.set_trace() 
+#        ipdb.set_trace() 
         
         size_now = size_now[NotNan_indices]
         size_next = size_next[NotNan_indices]
         
         # compute the correlation (Spearman Correlation)
-        corr = stats.spearmanr(size_now,size_next)
+        corr = stats.pearsonr(size_now,size_next)
         
-        return  {'corr':corr[0],'pval':corr[1]} 
+        return  corr[0],corr[1] #{'corr':corr[0],'pval':corr[1]} 
 
 
     def calc_transitions(self, order=1):
@@ -517,6 +517,7 @@ class AssemblyMethods(AssemblyInfo):
         MI_emp = 0
         sum_mat = 0
         
+        ipdb.set_trace()
         # (Empirical) compute the MI between current and next (future) state of whole process (i.e. all transitions of all nodes) 
         for i in np.arange(nCores):
             MI_emp += PrA_emp[0,i]*np.nansum(PrAB_emp[i,:]*np.log2(PrAB_emp[i,:]/PrA_emp))
@@ -566,13 +567,13 @@ class AssemblyMethods(AssemblyInfo):
         return CV2, CV, isi_all
                     
     
-    def calc_assemble_freq(self):
+    def calc_assembly_freq(self,fs=74.14):
         """ calculate the temporal frequency of each assembly, during the available recording time (freq in [1/frame])"""
         
         Tfreq_vec = np.zeros(self.get_ncores()) 
         for c in np.arange(self.get_ncores()):
             Tfreq_vec[c] = self.get_patterns_idx()[c].size/self.nFrames_av # in [1/frame]
-        return Tfreq_vec            
+        return Tfreq_vec*60*fs # in [min]           
     
     
     def calc_cohess_approx(self):

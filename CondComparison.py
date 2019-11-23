@@ -214,6 +214,10 @@ class CtrlTreat(object):
         keyarg_compt = {} if keyarg_compt is None else keyarg_compt
         keyarg_plot = {} if keyarg_plot is None else keyarg_plot            
         
+        # add title and label to the keyarg_plot
+        keyarg_plot['title'] = 'Local irregularity'
+        keyarg_plot['ylabel'] = 'CV2'
+        
         # extract the desired measure for each mouse of each condition
         out =  self.master_loop('calc_irregularity',0)
         
@@ -229,11 +233,9 @@ class CtrlTreat(object):
         keyarg_compt = {} if keyarg_compt is None else keyarg_compt
         keyarg_plot = {} if keyarg_plot is None else keyarg_plot            
         
-        
         # add title and label to the keyarg_plot
         keyarg_plot['title'] = 'Global irregularity'
         keyarg_plot['ylabel'] = 'CV'
-        
         
         # extract the desired measure for each mouse of each condition
         out =  self.master_loop('calc_irregularity',1)
@@ -244,7 +246,103 @@ class CtrlTreat(object):
         # plot the resutls
         self.plot_bar(result, **keyarg_plot) 
         
+    
+    def plot_meanIAI(self, keyarg_compt=None,keyarg_plot=None,**keyargs):    
         
+        keyarg_compt = {} if keyarg_compt is None else keyarg_compt
+        keyarg_plot = {} if keyarg_plot is None else keyarg_plot            
+        
+        # add title and label to the keyarg_plot
+        keyarg_plot['title'] = 'Inter-Assembly Intervals'
+        keyarg_plot['ylabel'] = 'IAI [frame]'
+        
+        # extract the desired measure for each mouse of each condition
+        out =  self.master_loop('calc_irregularity',2)
+        
+        # compute the deisred descriptive measure for each condition
+        result = self.cmpt_stat(out,**keyarg_compt)
+        
+        # plot the resutls
+        self.plot_bar(result, **keyarg_plot) 
+            
+
+    def plot_relfreq(self, keyarg_compt=None,keyarg_plot=None,**keyargs):    
+        
+        keyarg_compt = {} if keyarg_compt is None else keyarg_compt
+        keyarg_plot = {} if keyarg_plot is None else keyarg_plot            
+        
+        # add title and label to the keyarg_plot
+        keyarg_plot['title'] = 'Relative frequency'
+        keyarg_plot['ylabel'] = 'Occurrence prob.'
+        
+        # extract the desired measure for each mouse of each condition
+        out =  self.master_loop('get_assembly_relfreq')
+        
+        # compute the deisred descriptive measure for each condition
+        result = self.cmpt_stat(out,**keyarg_compt)
+        
+        # plot the resutls
+        self.plot_bar(result, **keyarg_plot)         
+
+
+    def plot_freq(self, keyarg_compt=None,keyarg_plot=None,**keyargs):    
+        
+        keyarg_compt = {} if keyarg_compt is None else keyarg_compt
+        keyarg_plot = {} if keyarg_plot is None else keyarg_plot            
+        
+        # add title and label to the keyarg_plot
+        keyarg_plot['title'] = 'In-time frequency'
+        keyarg_plot['ylabel'] = 'Occurrence frequency [1/min]'
+        
+        # extract the desired measure for each mouse of each condition
+        out =  self.master_loop('calc_assembly_freq')
+        
+        # compute the deisred descriptive measure for each condition
+        result = self.cmpt_stat(out,**keyarg_compt)
+        
+        # plot the resutls
+        self.plot_bar(result, **keyarg_plot)         
+
+
+    def plot_size_corr(self, keyarg_compt=None,keyarg_plot=None,**keyargs):    
+        
+        keyarg_compt = {} if keyarg_compt is None else keyarg_compt
+        keyarg_plot = {} if keyarg_plot is None else keyarg_plot            
+        
+        # add title and label to the keyarg_plot
+        keyarg_plot['title'] = 'Assembly size correlation'
+        keyarg_plot['ylabel'] = 'Correlation'
+        
+        # extract the desired measure for each mouse of each condition
+        out = self.master_loop('calc_size_corr',1)
+        
+#        ipdb.set_trace()
+        # compute the deisred descriptive measure for each condition
+        result = self.cmpt_stat(out,**keyarg_compt)
+        
+        # plot the resutls
+        self.plot_bar(result, **keyarg_plot)         
+
+
+    def plot_MI(self, keyarg_compt=None,keyarg_plot=None,**keyargs):    
+        
+        keyarg_compt = {} if keyarg_compt is None else keyarg_compt
+        keyarg_plot = {} if keyarg_plot is None else keyarg_plot            
+        
+        # add title and label to the keyarg_plot
+        keyarg_plot['title'] = 'Temporal structure'
+        keyarg_plot['ylabel'] = 'Mutula information [bit]'
+        
+        # extract the desired measure for each mouse of each condition
+        out = self.master_loop('calc_MI_transitions',0)
+        
+        ipdb.set_trace()
+        # compute the deisred descriptive measure for each condition
+        result = self.cmpt_stat(out,**keyarg_compt)
+        
+        # plot the resutls
+        self.plot_bar(result, **keyarg_plot)    
+
 #    def plot_nCores(self, )
         
 #     def plot_CV2(self, keyarg_compt,keyarg_plot,**keyargs):    
