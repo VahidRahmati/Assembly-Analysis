@@ -19,6 +19,7 @@ import scipy.io as sio
 import matplotlib.pyplot as plt
 from scipy import stats
 import sys
+import collections
 
 def import_assembly(Dir_DataNames, Dir_Assemblies, Active_thr,movie_idx):
     """ Import the data of detected neural assmblies from MAT files""" 
@@ -287,7 +288,7 @@ class AssemblyMethods(AssemblyInfo):
         size_next = size_next[NotNan_indices]
         
         # compute the correlation (Spearman Correlation)
-        corr = stats.pearsonr(size_now,size_next)
+        corr = stats.spearmanr(size_now,size_next)
         
         return  corr[0],corr[1] #{'corr':corr[0],'pval':corr[1]} 
 
@@ -298,6 +299,7 @@ class AssemblyMethods(AssemblyInfo):
         
         nCores = self.get_ncores()
         label_time = self.get_labeled_times().astype(int)
+        label_all = label_time[1,:].copy()
         sig_times = label_time[0,].copy()
         drifts_mat  = self.drifts_mat         
         nDrifts = drifts_mat.shape[0]
@@ -305,6 +307,7 @@ class AssemblyMethods(AssemblyInfo):
         count_mat = np.zeros((nCores,nCores))
         ch_size = np.zeros(nChunks)
         ch_size[:]=np.nan
+        label_new = []
         
         # now count the specif orders of assemblies (repetition time of all observed sequences)
         for cc in np.arange(nChunks):
@@ -314,10 +317,19 @@ class AssemblyMethods(AssemblyInfo):
             ch_label = ch_label_time[1,:]
             ch_sig = ch_label_time[0,:]           
             ch_size[cc] = ch_sig.size # the number of assemblies occuring within each chunk of time       
-#            ipdb.set_trace()
+
             if ch_sig.size>0:
+                
+                if ch_sig.size > 1:
+                    ipdb.set_trace()
+                    label_new += ch_label.tolist()
+                    
                 for i in np.arange(ch_sig.size-order):
                     count_mat[ch_label[i],ch_label[i+order]] += 1  
+                    
+            counter = collections.Counter(label_new)
+            counter.values()
+            counter.keys()
                        
         return {'count_mat':count_mat,'ch_size':ch_size}    
     
@@ -517,7 +529,6 @@ class AssemblyMethods(AssemblyInfo):
         MI_emp = 0
         sum_mat = 0
         
-        ipdb.set_trace()
         # (Empirical) compute the MI between current and next (future) state of whole process (i.e. all transitions of all nodes) 
         for i in np.arange(nCores):
             MI_emp += PrA_emp[0,i]*np.nansum(PrAB_emp[i,:]*np.log2(PrAB_emp[i,:]/PrA_emp))
