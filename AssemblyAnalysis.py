@@ -321,18 +321,33 @@ class AssemblyMethods(AssemblyInfo):
             if ch_sig.size>0:
                 
                 if ch_sig.size > 1:
-                    ipdb.set_trace()
                     label_new += ch_label.tolist()
                     
                 for i in np.arange(ch_sig.size-order):
                     count_mat[ch_label[i],ch_label[i+order]] += 1  
-                    
-            counter = collections.Counter(label_new)
-            counter.values()
-            counter.keys()
-                       
-        return {'count_mat':count_mat,'ch_size':ch_size}    
-    
+        
+        col_zero = np.where(count_mat.sum(axis=0)==0)
+        row_zero = np.where(count_mat.sum(axis=1)==0)
+        
+        if col_zero[0].size !=0:
+            count_mat = np.delete(count_mat, col_zero, axis=0)
+            count_mat = np.delete(count_mat, col_zero, axis=1)
+            
+        elif row_zero[0].size!=0:
+            count_mat = np.delete(count_mat, row_zero, axis=0)
+            count_mat = np.delete(count_mat, row_zero, axis=1)
+        
+#        counter = collections.Counter(label_new)
+#        counter.values()
+#        counter.keys()
+#            
+#        c = 0
+#        count_node = np.zeros((nCores,2))
+#        for k,v in counter.items():
+#            count_node[c,:] = [k,v]#np.vstack(count_node,[k,v])
+#            c +=1
+      
+        return {'count_mat':count_mat,'ch_size':ch_size} # , 'count_node':count_node    
     
     
     
@@ -368,7 +383,7 @@ class AssemblyMethods(AssemblyInfo):
         
         new_labels = new_labels[:-1]
         
-        ipdb.set_trace()
+        
         count_mat_sh = np.zeros((nCores,nCores,nShuffles))
         PrAB_sh = np.zeros_like(count_mat_sh)
         sum_mat = np.zeros_like(count_mat_emp)
@@ -386,6 +401,7 @@ class AssemblyMethods(AssemblyInfo):
         sig_all = label_time[0,:]
         trans = self.calc_transitions(order)
         count_mat_emp = trans['count_mat']
+        count_node = trans['count_node']
         ch_size = trans['ch_size']
         nChunks = ch_size.size
         count_mat_sh = np.zeros((nCores,nCores,nShuffles))
@@ -402,7 +418,6 @@ class AssemblyMethods(AssemblyInfo):
             
             for cc in np.arange(nChunks):
                 size_current = ch_size[cc]
-#                ipdb.set_trace()
                 if size_current>0:
                     ch_label = label_all[np.arange(m,m+size_current).astype(int)]
                     m += size_current
@@ -416,6 +431,7 @@ class AssemblyMethods(AssemblyInfo):
             PrAB_sh[:,:,s] = temp1
             nObserved_patterns_all = count_mat_sh[:,:,s].sum()
             temp2 = rows_sum_sh/nObserved_patterns_all
+#            temp2 = count_node[:,1]/count_node[:,1].sum()
             temp2[np.isnan(temp2)]=0
             PrA_sh[s,:] = np.squeeze(temp2)
          
@@ -430,6 +446,7 @@ class AssemblyMethods(AssemblyInfo):
         # also compute the probabilty of observating each node (i.e. assembly: A1,A2,A3); i.e. P(s_t=A1), P(s_t=A2),P(s_t=A3), ...
         nObserved_patterns_all = count_mat_emp.sum()
         PrA_emp = rows_sum/nObserved_patterns_all
+#        PrA_emp = count_node[:,1]/count_node[:,1].sum()
         PrA_emp[np.isnan(PrA_emp)] = 0
         PrA_emp = PrA_emp.reshape(1,nCores)
         
@@ -447,6 +464,7 @@ class AssemblyMethods(AssemblyInfo):
         sig_all = label_time[0,:]
         trans = self.calc_transitions(order)
         count_mat_emp = trans['count_mat']
+        count_node = trans['count_node']
         count_mat_sh = np.zeros((nCores,nCores,nShuffles))
         PrAB_sh = np.zeros_like(count_mat_sh)
         PrA_sh = np.zeros((nShuffles,nCores))
@@ -463,8 +481,9 @@ class AssemblyMethods(AssemblyInfo):
             temp1 = count_mat_sh[:,:,s]/rows_sum_sh
             temp1[np.isnan(temp1)]=0
             PrAB_sh[:,:,s] = temp1
-            nObserved_patterns_all = count_mat_sh[:,:,s].sum()
-            temp2 = rows_sum_sh/nObserved_patterns_all
+#            nObserved_patterns_all = count_mat_sh[:,:,s].sum()
+#            temp2 = rows_sum_sh/nObserved_patterns_all
+            temp2 = count_node[:,1]/count_node[:,1].sum()
             temp2[np.isnan(temp2)]=0
             PrA_sh[s,:] = np.squeeze(temp2)
             
@@ -474,10 +493,11 @@ class AssemblyMethods(AssemblyInfo):
         # additionally, also convert the count_mat to a Pr transition mat
         rows_sum = np.sum(count_mat_emp,axis=1).reshape(nCores,1) 
         PrAB_emp = count_mat_emp/rows_sum
-        
+        ipdb.set_trace()
         # also compute the probabilty of observating each node (i.e. assembly: A1,A2,A3); i.e. P(s_t=A1), P(s_t=A2),P(s_t=A3), ...
-        nObserved_patterns_all = count_mat_emp.sum()
-        PrA_emp = rows_sum/nObserved_patterns_all
+#        nObserved_patterns_all = count_mat_emp.sum()
+#        PrA_emp = rows_sum/nObserved_patterns_all
+        PrA_emp = count_node[:,1]/count_node[:,1].sum()
         PrA_emp = PrA_emp.reshape(1,nCores)    
         
         return {'pvals':pvals,'count_mat':count_mat_emp,'PrAB_sh':PrAB_sh,'PrAB_emp':PrAB_emp, 'PrA_emp':PrA_emp, 'PrA_sh':PrA_sh}
@@ -500,6 +520,7 @@ class AssemblyMethods(AssemblyInfo):
  
         # compute the empirical KL divergence between the observed transisition Pr dist and uniform dist 
         for i in np.arange(nCores):
+            print(PrAB_emp[i,:])
             KL_emp[0,i] =  np.nansum(PrAB_emp[i,:]*np.log2(PrAB_emp[i,:]/Pr_uni[i,:]))
         
         # now use shuffled Pr mat transitions to assess whether the KL_emp is significant         
@@ -511,6 +532,7 @@ class AssemblyMethods(AssemblyInfo):
             sum_mat += KL_sh>=KL_emp            
         pvals_KL = sum_mat/nShuffles   
         
+        ipdb.set_trace()
         return {'KL_emp':KL_emp, "pvals_KL":pvals_KL}
     
     

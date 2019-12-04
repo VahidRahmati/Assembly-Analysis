@@ -27,8 +27,8 @@ params['ctrlg_idx'] = [0,2,4,8,10]; # the name indices of Ctrol_g data
 params['ctrld_idx'] = [8,12,14,16,18,20]; # the name indices of Ctrol_d data
 
 #
-#spdata = aa.import_spike_trains(params['Dir_DataNames'], params['Dir_SpikeTrains'], movie_idx)
-#asmb_data = aa.import_assembly(params['Dir_DataNames'], params['Dir_Assemblies'], params['Active_thr'], movie_idx)
+spdata = aa.import_spike_trains(params['Dir_DataNames'], params['Dir_SpikeTrains'], movie_idx)
+asmb_data = aa.import_assembly(params['Dir_DataNames'], params['Dir_Assemblies'], params['Active_thr'], movie_idx)
 #aa.AssemblyMethods(asmb_data,spdata).calc_transitions()
 
 
