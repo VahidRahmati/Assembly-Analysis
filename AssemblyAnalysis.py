@@ -329,14 +329,17 @@ class AssemblyMethods(AssemblyInfo):
         col_zero = np.where(count_mat.sum(axis=0)==0)
         row_zero = np.where(count_mat.sum(axis=1)==0)
         
+        zero_idx = np.array([])
         if col_zero[0].size !=0:
             count_mat = np.delete(count_mat, col_zero, axis=0)
             count_mat = np.delete(count_mat, col_zero, axis=1)
+            zero_idx = col_zero[0]
             
         elif row_zero[0].size!=0:
             count_mat = np.delete(count_mat, row_zero, axis=0)
             count_mat = np.delete(count_mat, row_zero, axis=1)
-        
+            zero_idx = row_zero[0]
+            
 #        counter = collections.Counter(label_new)
 #        counter.values()
 #        counter.keys()
@@ -347,8 +350,7 @@ class AssemblyMethods(AssemblyInfo):
 #            count_node[c,:] = [k,v]#np.vstack(count_node,[k,v])
 #            c +=1
       
-        return {'count_mat':count_mat,'ch_size':ch_size} # , 'count_node':count_node    
-    
+        return {'count_mat':count_mat,'ch_size':ch_size,'zero_idx':zero_idx} # , 'count_node':count_node    
     
     
     def calc_assembly_seq3(self,nShuffles=5000,order=1):
@@ -401,13 +403,16 @@ class AssemblyMethods(AssemblyInfo):
         sig_all = label_time[0,:]
         trans = self.calc_transitions(order)
         count_mat_emp = trans['count_mat']
-        count_node = trans['count_node']
+#        nCores = count_mat_emp.shape[0]
+#        count_node = trans['count_node']
         ch_size = trans['ch_size']
+        zero_idx = trans['zero_idx']
         nChunks = ch_size.size
         count_mat_sh = np.zeros((nCores,nCores,nShuffles))
-        PrAB_sh = np.zeros_like(count_mat_sh)
+        PrAB_sh = np.zeros((nCores-zero_idx.size,nCores-zero_idx.size,nShuffles))
         sum_mat = np.zeros_like(count_mat_emp)
-        PrA_sh = np.zeros((nShuffles,nCores))
+        PrA_sh = np.zeros((nShuffles,nCores-zero_idx.size))
+        
         
         # for computing the count matrix in shuffled data, we don't care about the shuffles
         for s in np.arange(nShuffles):
@@ -421,25 +426,42 @@ class AssemblyMethods(AssemblyInfo):
                 if size_current>0:
                     ch_label = label_all[np.arange(m,m+size_current).astype(int)]
                     m += size_current
+#                    ipdb.set_trace()
                     for i in np.arange(ch_label.size-order):
                         count_mat_sh[ch_label[i],ch_label[i+order],s] += 1 
+           
             
-            sum_mat += count_mat_sh[:,:,s]>=count_mat_emp
-            rows_sum_sh = np.sum(count_mat_sh[:,:,s],axis=1).reshape(nCores,1) 
-            temp1 = count_mat_sh[:,:,s]/rows_sum_sh
+            count_sh_temp = count_mat_sh[:,:,s].copy()
+            count_sh_temp =np.delete(count_sh_temp,zero_idx,axis=0)
+            count_sh_temp =np.delete(count_sh_temp,zero_idx,axis=1)
+            
+            sum_mat += count_sh_temp>=count_mat_emp
+            rows_sum_sh = np.sum(count_sh_temp,axis=1).reshape(count_sh_temp.shape[0],1) 
+            temp1 = count_sh_temp/rows_sum_sh
             temp1[np.isnan(temp1)]=0
             PrAB_sh[:,:,s] = temp1
-            nObserved_patterns_all = count_mat_sh[:,:,s].sum()
+            nObserved_patterns_all = count_sh_temp.sum()
             temp2 = rows_sum_sh/nObserved_patterns_all
 #            temp2 = count_node[:,1]/count_node[:,1].sum()
             temp2[np.isnan(temp2)]=0
             PrA_sh[s,:] = np.squeeze(temp2)
-         
+            
+#            sum_mat += count_mat_sh[:,:,s]>=count_mat_emp
+#            rows_sum_sh = np.sum(count_mat_sh[:,:,s],axis=1).reshape(count_mat_sh.shape[0],1) 
+#            temp1 = count_mat_sh[:,:,s]/rows_sum_sh
+#            temp1[np.isnan(temp1)]=0
+#            PrAB_sh[:,:,s] = temp1
+#            nObserved_patterns_all = count_mat_sh[:,:,s].sum()
+#            temp2 = rows_sum_sh/nObserved_patterns_all
+##            temp2 = count_node[:,1]/count_node[:,1].sum()
+#            temp2[np.isnan(temp2)]=0
+#            PrA_sh[s,:] = np.squeeze(temp2)
+            
         # now compute pvalues
         pvals = sum_mat/nShuffles
         
         # additionally, also convert the count_mat to a Pr transition mat
-        rows_sum = np.sum(count_mat_emp,axis=1).reshape(nCores,1) 
+        rows_sum = np.sum(count_mat_emp,axis=1).reshape(nCores-zero_idx.size,1) 
         PrAB_emp = count_mat_emp/rows_sum
         PrAB_emp[np.isnan(PrAB_emp)]=0
         
@@ -448,12 +470,21 @@ class AssemblyMethods(AssemblyInfo):
         PrA_emp = rows_sum/nObserved_patterns_all
 #        PrA_emp = count_node[:,1]/count_node[:,1].sum()
         PrA_emp[np.isnan(PrA_emp)] = 0
-        PrA_emp = PrA_emp.reshape(1,nCores)
+        PrA_emp = PrA_emp.reshape(1,nCores-zero_idx.size)
+        
         
         return {'pvals':pvals,'count_mat':count_mat_emp,'PrAB_sh':PrAB_sh,'PrAB_emp':PrAB_emp, 'PrA_emp':PrA_emp, 'PrA_sh':PrA_sh}
     
     
+    def calc_entropy(self):
+        
+        PrA = self.calc_assembly_seq1()['PrA_emp']
+        H_emp = - np.sum(PrA*np.log2(PrA))
+#        ipdb.set_trace()
+        
+        return {'H_emp':H_emp}
   
+    
     def calc_assembly_seq2(self,nShuffles=5000, order=1):
         """ Compute the pvalues of assembly in-time transitions, based on transition-divergence.
         First shuffling method: The drift periods are exlucded, and shuffling is performed 
@@ -503,15 +534,15 @@ class AssemblyMethods(AssemblyInfo):
         return {'pvals':pvals,'count_mat':count_mat_emp,'PrAB_sh':PrAB_sh,'PrAB_emp':PrAB_emp, 'PrA_emp':PrA_emp, 'PrA_sh':PrA_sh}
     
     
-    
     def calc_KL_transitions(self,nShuffles=5000,order=1):
         """ Use KL-divergence to assess whether the state stransitions of each  node (each node separately; a node = a neural assembly)  
         is temporally more structured than a purely random process (i.e. process under uniform assumption), based on KL-divergence"""
         
-        nCores = self.get_ncores()
+#        nCores = self.get_ncores()
         seq_info = self.calc_assembly_seq1(nShuffles,order)
         PrAB_emp = seq_info['PrAB_emp']
         PrAB_sh = seq_info['PrAB_sh']
+        nCores = PrAB_emp.shape[0]
         Pr_uni = np.ones_like(PrAB_emp)/nCores # the transition Pr matrix under uniform dist assumption
         
         KL_emp = np.zeros((1,nCores))
@@ -532,9 +563,7 @@ class AssemblyMethods(AssemblyInfo):
             sum_mat += KL_sh>=KL_emp            
         pvals_KL = sum_mat/nShuffles   
         
-        ipdb.set_trace()
         return {'KL_emp':KL_emp, "pvals_KL":pvals_KL}
-    
     
     
     def calc_MI_transitions(self,nShuffles=5000,order=1):    
@@ -542,14 +571,16 @@ class AssemblyMethods(AssemblyInfo):
         more structured than that of shuffled data. MI tells us, how much knowing the current state of the process witll tell us about
         the future (next state), or vice versa. """
         
-        nCores = self.get_ncores()
+#        nCores = self.get_ncores()
         seq_info = self.calc_assembly_seq1(nShuffles,order)
         PrAB_emp = seq_info['PrAB_emp']
         PrA_emp = seq_info['PrA_emp'] 
         PrAB_sh = seq_info['PrAB_sh']  
-        PrA_sh = seq_info['PrA_sh'] 
+        PrA_sh = seq_info['PrA_sh']
+        nCores = PrAB_emp.shape[0]
         MI_emp = 0
         sum_mat = 0
+        
         
         # (Empirical) compute the MI between current and next (future) state of whole process (i.e. all transitions of all nodes) 
         for i in np.arange(nCores):
@@ -562,6 +593,9 @@ class AssemblyMethods(AssemblyInfo):
                 MI_sh += PrA_sh[s,i]*np.nansum(PrAB_sh[i,:,s]*np.log2(PrAB_sh[i,:,s]/PrA_sh[s,:]))           
             sum_mat += MI_sh>=MI_emp       
         pval_MI = sum_mat/nShuffles        
+        
+        H = self.calc_entropy()['H_emp']
+        MI_emp = MI_emp/H
         
         return MI_emp, pval_MI        
         
@@ -592,7 +626,6 @@ class AssemblyMethods(AssemblyInfo):
                n_isi += isi_vec.size
            
 
-               
         CV2 = sum_CV2/(n_isi-1)
         isi_all = np.array(isi_all)
         CV = np.nanstd(isi_all)/np.nanmean(isi_all)        

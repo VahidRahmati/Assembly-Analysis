@@ -336,7 +336,6 @@ class CtrlTreat(object):
         # extract the desired measure for each mouse of each condition
         out = self.master_loop('calc_MI_transitions',0)
         
-        ipdb.set_trace()
         # compute the deisred descriptive measure for each condition
         result = self.cmpt_stat(out,**keyarg_compt)
         
