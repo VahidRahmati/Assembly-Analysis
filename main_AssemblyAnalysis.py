@@ -17,7 +17,7 @@ import CondComparison as cc
 
 # %% parameters
 params = dict()
-movie_idx = 18  # index of the data set (currently not applicapable)
+movie_idx = 2  # index of the data set (currently not applicapable)
 params['Active_thr'] = 3 # importing data with activation threshold of: CoActive_thr*STD(mean[Ft])
 params['Dir_DataNames'] = 'D:\Dropbox\Project\PAPER\JNS 2018\Video_2018 - vr\Main analysis\Template Matching' 
 params['Dir_Assemblies'] = 'D:\Data\\2nd Project\\Data\\Data_arranged\\All\\Assemblies\\'

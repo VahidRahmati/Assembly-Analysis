@@ -339,7 +339,8 @@ class AssemblyMethods(AssemblyInfo):
             count_mat = np.delete(count_mat, row_zero, axis=0)
             count_mat = np.delete(count_mat, row_zero, axis=1)
             zero_idx = row_zero[0]
-            
+       
+        
 #        counter = collections.Counter(label_new)
 #        counter.values()
 #        counter.keys()
@@ -472,6 +473,7 @@ class AssemblyMethods(AssemblyInfo):
         PrA_emp[np.isnan(PrA_emp)] = 0
         PrA_emp = PrA_emp.reshape(1,nCores-zero_idx.size)
         
+        ipdb.set_trace()
         
         return {'pvals':pvals,'count_mat':count_mat_emp,'PrAB_sh':PrAB_sh,'PrAB_emp':PrAB_emp, 'PrA_emp':PrA_emp, 'PrA_sh':PrA_sh}
     
@@ -482,7 +484,7 @@ class AssemblyMethods(AssemblyInfo):
         H_emp = - np.sum(PrA*np.log2(PrA))
 #        ipdb.set_trace()
         
-        return {'H_emp':H_emp}
+        return H_emp
   
     
     def calc_assembly_seq2(self,nShuffles=5000, order=1):
@@ -534,7 +536,7 @@ class AssemblyMethods(AssemblyInfo):
         return {'pvals':pvals,'count_mat':count_mat_emp,'PrAB_sh':PrAB_sh,'PrAB_emp':PrAB_emp, 'PrA_emp':PrA_emp, 'PrA_sh':PrA_sh}
     
     
-    def calc_KL_transitions(self,nShuffles=5000,order=1):
+    def calc_KL_transitions(self,nShuffles=5000,order=1,alpha_sig = 0.05):
         """ Use KL-divergence to assess whether the state stransitions of each  node (each node separately; a node = a neural assembly)  
         is temporally more structured than a purely random process (i.e. process under uniform assumption), based on KL-divergence"""
         
@@ -551,7 +553,7 @@ class AssemblyMethods(AssemblyInfo):
  
         # compute the empirical KL divergence between the observed transisition Pr dist and uniform dist 
         for i in np.arange(nCores):
-            print(PrAB_emp[i,:])
+#            print(PrAB_emp[i,:])
             KL_emp[0,i] =  np.nansum(PrAB_emp[i,:]*np.log2(PrAB_emp[i,:]/Pr_uni[i,:]))
         
         # now use shuffled Pr mat transitions to assess whether the KL_emp is significant         
@@ -563,7 +565,14 @@ class AssemblyMethods(AssemblyInfo):
             sum_mat += KL_sh>=KL_emp            
         pvals_KL = sum_mat/nShuffles   
         
-        return {'KL_emp':KL_emp, "pvals_KL":pvals_KL}
+        # compute the percentage of nodes with significant transitions
+        nSig_nodes = pvals_KL[pvals_KL<alpha_sig].size
+        nSig_nodes = nSig_nodes*100/nCores
+        
+        # compute the grand adverage distance of all nodes from unifrom distribution
+        KL_ave = np.mean(KL_emp)
+        
+        return KL_emp, pvals_KL, nSig_nodes, KL_ave
     
     
     def calc_MI_transitions(self,nShuffles=5000,order=1):    
@@ -594,10 +603,10 @@ class AssemblyMethods(AssemblyInfo):
             sum_mat += MI_sh>=MI_emp       
         pval_MI = sum_mat/nShuffles        
         
-        H = self.calc_entropy()['H_emp']
-        MI_emp = MI_emp/H
+        H = self.calc_entropy()
+        MI_emp_norm = MI_emp/H
         
-        return MI_emp, pval_MI        
+        return MI_emp, pval_MI, MI_emp_norm        
         
     
     def calc_irregularity(self):
@@ -652,7 +661,10 @@ class AssemblyMethods(AssemblyInfo):
         for c in np.arange(self.get_ncores()):
             affinities = temp[c,self.get_core_PatchIdx()[c][0]].copy() #extract affinities of the core cells only
             cho_approx[c] = np.mean(affinities)
-        return cho_approx, affinities   
+            
+        cho_ave = np.mean(cho_approx)
+        
+        return cho_approx, affinities, cho_ave   
 
 
     def calc_cohess_exact(self):
@@ -665,23 +677,33 @@ class AssemblyMethods(AssemblyInfo):
             Pr_nlA = np.sum(self.get_patterns_raster()[c],axis=1)/nPatterns # P(n_k|A_i) of "All" recorded individual cells
             Pr_nlA = Pr_nlA[self.get_core_PatchIdx()[c][0]] # ... of only "Core" cells
             cho_exact[c] = np.mean(Pr_nlA)
-        return cho_exact, Pr_nlA 
+        
+        cho_ave = np.mean(cho_exact)
+        
+        return cho_exact, Pr_nlA, cho_ave 
     
     
     def calc_initiativeness(self):
         """ calculate the initiativeness: p(assembly | cell)"""
+        
         nCores = self.get_ncores()
         raster_full = np.hstack((self.get_patterns_raster()[:])) # raster matrix of all sig patterns of all assemblies
         cellActTimesTot_vec = np.sum(raster_full,axis=1)
-        drivingness = [[]]*nCores
+        Pr_Aln = [[]]*nCores
+        Pr_Aln_ave = np.zeros(self.get_ncores())
+        
         for c in np.arange(nCores):
             coreCells = self.get_core_PatchIdx()[c][0]
             cellActTimesAsmb_vec = np.sum(self.get_patterns_raster()[c],axis=1)
-            drivingness[c]=cellActTimesAsmb_vec[coreCells]/cellActTimesTot_vec[coreCells]           
-        return drivingness
+            Pr_Aln[c]=cellActTimesAsmb_vec[coreCells]/cellActTimesTot_vec[coreCells]   
+            Pr_Aln_ave[c] = np.mean(Pr_Aln[c])
+        
+        ini_ave = np.nanmean(Pr_Aln_ave)
+            
+        return Pr_Aln_ave, Pr_Aln, ini_ave
          
     
-    def calc_spatial_overlap(self,ss_thr):
+    def calc_spatial_overlap(self,ss_thr=80):
         """ calculate the degree of overlap beetween the core assempbly spatial patterns, using the Dice similarity measures.
         Also, determine whether an assembly is a sub-assembly of another assembly, based on the spatail patterns of their cores"""
         
@@ -705,8 +727,14 @@ class AssemblyMethods(AssemblyInfo):
         for i in np.arange(nCores):
             for j in np.arange(nCores):
                 if SS[i,j]>=ss_thr and SS[j,i]<ss_thr:
-                    SS_main[i,j] = 1    
-        return DSC, SS_main, SS
+                    SS_main[i,j] = 1
+                    
+#        ipdb.set_trace()
+        DSC_ave = np.mean(DSC[np.tril_indices(DSC.shape[0],k=-1)])
+        overlap_ave = np.mean(SS[np.tril_indices(SS.shape[0],k=-1)])
+        nFull_overlap = SS_main.sum()
+        
+        return DSC_ave, overlap_ave, nFull_overlap
     
     
     def calc_pattern_reliability(self):
@@ -731,8 +759,10 @@ class AssemblyMethods(AssemblyInfo):
   
             ed_cores_mats[c] = ed_mat
             ed_cores_means[c] = np.nanmean(ed_mat)
-        return ed_cores_mats,  ed_cores_means    
-    
+            
+        ed_grandmean = np.nanmean(ed_cores_means)
+        
+        return ed_cores_mats, ed_cores_means, ed_grandmean    
     
     
 #%% draft code    

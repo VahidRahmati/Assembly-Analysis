@@ -341,7 +341,160 @@ class CtrlTreat(object):
         
         # plot the resutls
         self.plot_bar(result, **keyarg_plot)    
+        
+        
+    def plot_H(self, keyarg_compt=None,keyarg_plot=None,**keyargs):    
+        
+        keyarg_compt = {} if keyarg_compt is None else keyarg_compt
+        keyarg_plot = {} if keyarg_plot is None else keyarg_plot            
+        
+        # add title and label to the keyarg_plot
+        keyarg_plot['title'] = 'Temporal structure'
+        keyarg_plot['ylabel'] = 'Entropy [bit]'
+        
+        # extract the desired measure for each mouse of each condition
+        out = self.master_loop('calc_entropy')
+        
+        # compute the deisred descriptive measure for each condition
+        result = self.cmpt_stat(out,**keyarg_compt)
+        
+        # plot the resutls
+        self.plot_bar(result, **keyarg_plot)    
 
+
+    def plot_KL_SigNodes_rel(self, keyarg_compt=None,keyarg_plot=None,**keyargs):    
+        
+        keyarg_compt = {} if keyarg_compt is None else keyarg_compt
+        keyarg_plot = {} if keyarg_plot is None else keyarg_plot            
+        
+        # add title and label to the keyarg_plot
+        keyarg_plot['title'] = 'Significant node transitions'
+        keyarg_plot['ylabel'] = 'precntage of nSig nodes'
+        
+        # extract the desired measure for each mouse of each condition
+        out = self.master_loop('calc_KL_transitions',2)
+        
+        # compute the deisred descriptive measure for each condition
+        result = self.cmpt_stat(out,**keyarg_compt)
+        
+        # plot the resutls
+        self.plot_bar(result, **keyarg_plot)   
+ 
+
+    def plot_KL_ave(self, keyarg_compt=None,keyarg_plot=None,**keyargs):    
+        
+        keyarg_compt = {} if keyarg_compt is None else keyarg_compt
+        keyarg_plot = {} if keyarg_plot is None else keyarg_plot            
+        
+        # add title and label to the keyarg_plot
+        keyarg_plot['title'] = 'Node transitions'
+        keyarg_plot['ylabel'] = 'Ave. KL distance'
+        
+        # extract the desired measure for each mouse of each condition
+        out = self.master_loop('calc_KL_transitions',3)
+        
+        # compute the deisred descriptive measure for each condition
+        result = self.cmpt_stat(out,**keyarg_compt)
+        
+        # plot the resutls
+        self.plot_bar(result, **keyarg_plot)
+        
+ 
+    def plot_cohess_exact(self, keyarg_compt=None,keyarg_plot=None,**keyargs):    
+        
+        keyarg_compt = {} if keyarg_compt is None else keyarg_compt
+        keyarg_plot = {} if keyarg_plot is None else keyarg_plot            
+        
+        # add title and label to the keyarg_plot
+        keyarg_plot['title'] = 'Cohessivenss (Exact)'
+        keyarg_plot['ylabel'] = 'Ave. cohessiveness'
+        
+        # extract the desired measure for each mouse of each condition
+        out = self.master_loop('calc_cohess_exact',2)
+        
+        # compute the deisred descriptive measure for each condition
+        result = self.cmpt_stat(out,**keyarg_compt)
+        
+        # plot the resutls
+        self.plot_bar(result, **keyarg_plot)
+        
+
+    def plot_cohess_approx(self, keyarg_compt=None,keyarg_plot=None,**keyargs):    
+        
+        keyarg_compt = {} if keyarg_compt is None else keyarg_compt
+        keyarg_plot = {} if keyarg_plot is None else keyarg_plot            
+        
+        # add title and label to the keyarg_plot
+        keyarg_plot['title'] = 'Cohessivenss (Approximate)'
+        keyarg_plot['ylabel'] = 'Ave. cohessiveness'
+        
+        # extract the desired measure for each mouse of each condition
+        out = self.master_loop('calc_cohess_approx',2)
+        
+        # compute the deisred descriptive measure for each condition
+        result = self.cmpt_stat(out,**keyarg_compt)
+        
+        # plot the resutls
+        self.plot_bar(result, **keyarg_plot)
+
+ 
+    def plot_init(self, keyarg_compt=None,keyarg_plot=None,**keyargs):    
+        
+        keyarg_compt = {} if keyarg_compt is None else keyarg_compt
+        keyarg_plot = {} if keyarg_plot is None else keyarg_plot            
+        
+        # add title and label to the keyarg_plot
+        keyarg_plot['title'] = 'Initiativeness'
+        keyarg_plot['ylabel'] = 'Ave. initiativeness'
+        
+        # extract the desired measure for each mouse of each condition
+        out = self.master_loop('calc_initiativeness',2)
+        
+        # compute the deisred descriptive measure for each condition
+        result = self.cmpt_stat(out,**keyarg_compt)
+        
+        # plot the resutls
+        self.plot_bar(result, **keyarg_plot)
+ 
+
+    def plot_overlap(self, keyarg_compt=None,keyarg_plot=None,**keyargs):    
+        
+        keyarg_compt = {} if keyarg_compt is None else keyarg_compt
+        keyarg_plot = {} if keyarg_plot is None else keyarg_plot            
+        
+        # add title and label to the keyarg_plot
+        keyarg_plot['title'] = 'Assembly spatial overlap'
+        keyarg_plot['ylabel'] = 'Ave. overlap'
+        
+        # extract the desired measure for each mouse of each condition
+        out = self.master_loop('calc_spatial_overlap',0)
+        
+        # compute the deisred descriptive measure for each condition
+        result = self.cmpt_stat(out,**keyarg_compt)
+        
+        # plot the resutls
+        self.plot_bar(result, **keyarg_plot)       
+        
+        
+    def plot_reliability(self, keyarg_compt=None,keyarg_plot=None,**keyargs):    
+        
+        keyarg_compt = {} if keyarg_compt is None else keyarg_compt
+        keyarg_plot = {} if keyarg_plot is None else keyarg_plot            
+        
+        # add title and label to the keyarg_plot
+        keyarg_plot['title'] = 'Pattern reliability'
+        keyarg_plot['ylabel'] = 'Ave. of edit distances'
+        
+        # extract the desired measure for each mouse of each condition
+        out = self.master_loop('calc_pattern_reliability',2)
+        
+        # compute the deisred descriptive measure for each condition
+        result = self.cmpt_stat(out,**keyarg_compt)
+        
+        # plot the resutls
+        self.plot_bar(result, **keyarg_plot) 
+        
+        
 #    def plot_nCores(self, )
         
 #     def plot_CV2(self, keyarg_compt,keyarg_plot,**keyargs):    
