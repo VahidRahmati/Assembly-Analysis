@@ -394,7 +394,7 @@ class AssemblyMethods(AssemblyInfo):
         
     
     
-    def calc_assembly_seq1(self,nShuffles=5000,order=1):
+    def calc_assembly_seq1(self,nShuffles=5000,order=1,alpha_sig = 0.05):
         """ Compute the pvalues of assembly in-time transitions, based on transition-matrix.
         Second shuffling method: only the aseembly labeles are shuffled across chunks, and 
         drift periods remain fixed."""
@@ -472,9 +472,10 @@ class AssemblyMethods(AssemblyInfo):
 #        PrA_emp = count_node[:,1]/count_node[:,1].sum()
         PrA_emp[np.isnan(PrA_emp)] = 0
         PrA_emp = PrA_emp.reshape(1,nCores-zero_idx.size)
-        
         ipdb.set_trace()
-        
+        nSigSeqs = pvals<alpha_sig
+        nSigSeqs = nSigSeqs.sum()
+        ipdb.set_trace()
         return {'pvals':pvals,'count_mat':count_mat_emp,'PrAB_sh':PrAB_sh,'PrAB_emp':PrAB_emp, 'PrA_emp':PrA_emp, 'PrA_sh':PrA_sh}
     
     
